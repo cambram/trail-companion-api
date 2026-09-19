@@ -18,5 +18,9 @@ internal static class ApiEndpoints
         public const string CreateSegment = SegmentBase;
         public const string UpdateSegment = $"{SegmentBase}/{{id:guid}}";
         public const string DeleteSegment = $"{SegmentBase}/{{id:guid}}";
+        private const string ItemBase = $"{SegmentBase}/{{segmentId:guid}}/items";
+        public const string CreateItem = ItemBase;
+        public const string UpdateItem = $"{ItemBase}/{{id:guid}}";
+        public const string DeleteItem = $"{ItemBase}/{{id:guid}}";
     }
 }
