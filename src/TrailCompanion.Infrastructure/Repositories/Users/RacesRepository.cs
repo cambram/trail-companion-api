@@ -30,4 +30,6 @@ public class RacesRepository : Repository, IRacesRepository
 
     public async Task AddAsync(Races race, CancellationToken cancellationToken = default) =>
         await AddAsync<Races>(race, cancellationToken);
+
+    public void Delete(Races race) => Delete<Races>(race);
 }
