@@ -7,7 +7,7 @@ namespace TrailCompanion.Application.Modules.Users.Commands;
 
 public sealed class RegisterUserCommand : IRequest<AppUserDto>
 {
-    public const int MinimumPasswordLength = 12;
+    public const int MinimumPasswordLength = 8;
 
     public RegisterUserCommand(RegisterUserRequest request)
     {

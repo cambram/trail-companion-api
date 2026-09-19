@@ -9,6 +9,7 @@ internal static class RepositoryConfiguration
     internal static IServiceCollection AddRepositories(this IServiceCollection services)
     {
         services.AddScoped<IAppUserRepository, AppUserRepository>();
+        services.AddScoped<IRacesRepository, RacesRepository>();
 
         return services;
     }
