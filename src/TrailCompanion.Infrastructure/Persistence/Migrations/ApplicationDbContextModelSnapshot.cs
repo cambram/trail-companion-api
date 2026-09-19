@@ -51,6 +51,154 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
 
                     b.ToTable("AppUsers", (string)null);
                 });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Items", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Carbs")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SegmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SegmentId");
+
+                    b.ToTable("Items", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Items_Carbs", "\"Carbs\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Races", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Target")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(60);
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.ToTable("Races", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Races_Target", "\"Target\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Segments", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("Distance")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("Duration")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasDefaultValue("");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RaceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RaceId");
+
+                    b.ToTable("Segments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Segments_Distance", "\"Distance\" IS NULL OR \"Distance\" >= 0");
+
+                            t.HasCheckConstraint("CK_Segments_Duration", "\"Duration\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Items", b =>
+                {
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.Segments", null)
+                        .WithMany()
+                        .HasForeignKey("SegmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Races", b =>
+                {
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Segments", b =>
+                {
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.Races", null)
+                        .WithMany()
+                        .HasForeignKey("RaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
 #pragma warning restore 612, 618
         }
     }

@@ -1,0 +1,28 @@
+using TrailCompanion.Domain.Modules.Users.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace TrailCompanion.Infrastructure.Persistence.Configuration.Users;
+
+public class RacesConfiguration : IEntityTypeConfiguration<Races>
+{
+    public void Configure(EntityTypeBuilder<Races> builder)
+    {
+        builder.ToTable("Races", table => table.HasCheckConstraint("CK_Races_Target", "\"Target\" >= 0"));
+
+        builder.HasKey(r => r.Id);
+
+        builder.Property(r => r.Name)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(r => r.Target)
+            .IsRequired()
+            .HasDefaultValue(60);
+
+        builder.HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(r => r.AppUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
