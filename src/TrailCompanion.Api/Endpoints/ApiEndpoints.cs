@@ -10,6 +10,8 @@ internal static class ApiEndpoints
         public const string RegisterUser = $"{UserBase}/register";
         public const string LoginUser = $"{UserBase}/login";
         public const string GetMyUser = $"{UserBase}/me";
-        public const string CreateRace = $"{ApiBase}/races";
+        private const string RaceBase = $"{ApiBase}/races";
+        public const string CreateRace = RaceBase;
+        public const string GetRaces = RaceBase;
     }
 }
