@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:17
+    container_name: template-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: template
+    ports:
+      - "${TEMPLATE_DB_PORT:-5432}:5432"
+    volumes:
+      - template-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d template"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  template-db-data:
