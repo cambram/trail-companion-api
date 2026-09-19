@@ -1,4 +1,4 @@
-# Template API
+# TrailCompanion API
 
 A blank-slate .NET 10 API: four-layer Clean Architecture, Minimal APIs, MediatR, EF Core over PostgreSQL, and self-issued JWT auth. The only feature is `Users` (register, login, me). See [`CLAUDE.md`](./CLAUDE.md) for conventions.
 
@@ -12,9 +12,9 @@ A blank-slate .NET 10 API: four-layer Clean Architecture, Minimal APIs, MediatR,
 
 ```bash
 docker compose up -d
-dotnet user-secrets set "Jwt:Key" "$(openssl rand -base64 48)" --project src/Template.Api
-dotnet ef database update --project src/Template.Infrastructure --startup-project src/Template.Api
-dotnet run --project src/Template.Api
+dotnet user-secrets set "Jwt:Key" "$(openssl rand -base64 48)" --project src/TrailCompanion.Api
+dotnet ef database update --project src/TrailCompanion.Infrastructure --startup-project src/TrailCompanion.Api
+dotnet run --project src/TrailCompanion.Api
 ```
 
 The API listens on `http://localhost:5170`. In Development, Swagger UI is at `/swagger`.

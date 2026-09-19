@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# Template API: .NET 10 / Clean Architecture / JWT auth / PostgreSQL
+# TrailCompanion API: .NET 10 / Clean Architecture / JWT auth / PostgreSQL
 
 ## 1. Project Overview
 
@@ -16,15 +16,15 @@ A blank-slate API template. The only feature is the `Users` module: register, lo
 - **Business logic**: CQRS via MediatR. Each operation is a `Commands/` or `Queries/` request class paired with its `IRequestHandler` in the same file. Endpoints resolve `ISender` and `Send()` the request. No MediatR pipeline behaviours; validation is explicit in the handler.
 
 ```
-Template.Api → Template.Infrastructure → Template.Application → Template.Domain
-Template.Api → Template.Application
+TrailCompanion.Api → TrailCompanion.Infrastructure → TrailCompanion.Application → TrailCompanion.Domain
+TrailCompanion.Api → TrailCompanion.Application
 ```
 
-- `src/Template.Domain`: Entities, exceptions, repository interfaces. **Zero references.**
-- `src/Template.Application`: Command/query handlers, DTOs, contracts (`IPasswordHasher`, `IAccessTokenIssuer`), `ICurrentUser`, `JwtOptions`.
-- `src/Template.Infrastructure`: `ApplicationDbContext`, EF configurations, repositories, migrations, password hashing and token issuing.
-- `src/Template.Api`: `Program.cs` composition root, endpoints, middleware, JWT validation, rate limiting.
-- `tests/`: `Template.Application.Tests` (xUnit + NSubstitute), `Template.Infrastructure.Tests` (EF in-memory, password hasher), `Template.Infrastructure.IntegrationTests` (real PostgreSQL via Testcontainers, fresh migrated database per test class), `Template.Api.Tests` (end-to-end HTTP via `WebApplicationFactory` against Testcontainers). Tag every Docker-backed test `[Trait("Category", "Integration")]`.
+- `src/TrailCompanion.Domain`: Entities, exceptions, repository interfaces. **Zero references.**
+- `src/TrailCompanion.Application`: Command/query handlers, DTOs, contracts (`IPasswordHasher`, `IAccessTokenIssuer`), `ICurrentUser`, `JwtOptions`.
+- `src/TrailCompanion.Infrastructure`: `ApplicationDbContext`, EF configurations, repositories, migrations, password hashing and token issuing.
+- `src/TrailCompanion.Api`: `Program.cs` composition root, endpoints, middleware, JWT validation, rate limiting.
+- `tests/`: `TrailCompanion.Application.Tests` (xUnit + NSubstitute), `TrailCompanion.Infrastructure.Tests` (EF in-memory, password hasher), `TrailCompanion.Infrastructure.IntegrationTests` (real PostgreSQL via Testcontainers, fresh migrated database per test class), `TrailCompanion.Api.Tests` (end-to-end HTTP via `WebApplicationFactory` against Testcontainers). Tag every Docker-backed test `[Trait("Category", "Integration")]`.
 
 ### 2.1 `Common/` vs `Modules/`
 
@@ -39,11 +39,11 @@ Each project root carries a `GlobalUsings.cs` and an empty `I<Layer>AssemblyMark
 ## 3. Essential Commands
 
 ```bash
-docker compose up -d          # postgres:17 as template-db
+docker compose up -d          # postgres:17 as trailcompanion-db
 dotnet build                  # must be clean with ZERO warnings
 dotnet test                   # integration tests need Docker
 dotnet test --filter "Category!=Integration"    # unit only, no Docker
-dotnet run --project src/Template.Api           # http://localhost:5170, Swagger at /swagger
+dotnet run --project src/TrailCompanion.Api           # http://localhost:5170, Swagger at /swagger
 ```
 
 Single test: `dotnet test --filter "FullyQualifiedName~LoginUserCommandHandlerTests"`. A filter matching nothing still exits 0; confirm the reported count.
@@ -51,15 +51,15 @@ Single test: `dotnet test --filter "FullyQualifiedName~LoginUserCommandHandlerTe
 Migrations:
 
 ```bash
-dotnet ef migrations add <Name> --project src/Template.Infrastructure \
-  --startup-project src/Template.Api --output-dir Persistence/Migrations
-dotnet ef database update --project src/Template.Infrastructure --startup-project src/Template.Api
+dotnet ef migrations add <Name> --project src/TrailCompanion.Infrastructure \
+  --startup-project src/TrailCompanion.Api --output-dir Persistence/Migrations
+dotnet ef database update --project src/TrailCompanion.Infrastructure --startup-project src/TrailCompanion.Api
 ```
 
 Secrets go to user-secrets, never a committed file. The API refuses to start without a signing key of at least 32 bytes:
 
 ```bash
-dotnet user-secrets set "Jwt:Key" "$(openssl rand -base64 48)" --project src/Template.Api
+dotnet user-secrets set "Jwt:Key" "$(openssl rand -base64 48)" --project src/TrailCompanion.Api
 ```
 
 ## 4. Post-Generation Workflow
@@ -115,19 +115,19 @@ dotnet user-secrets set "Jwt:Key" "$(openssl rand -base64 48)" --project src/Tem
 
 **Adding a module** (PascalCase plural noun, reused verbatim in every layer):
 
-1. `Template.Domain/Modules/<Module>/Entities/` (inherit `BaseEntity`, add `AppUserId` if owned) and `Repositories/I<Entity>Repository.cs` whose reads take `appUserId`.
-2. `Template.Application/Modules/<Module>/Dtos/`, `Commands/`, `Queries/`: one file per operation, scoped by `appUserId`.
-3. `Template.Infrastructure/Persistence/Configuration/<Module>/` and `Repositories/<Module>/` (inherit `Repository`, use `Context.Set<T>()`); register in `RepositoryConfiguration`. Add any unique index name to `UniqueConstraintConflicts`.
-4. `Template.Api`: route constants in `ApiEndpoints`, a `Modules` tag, one `IEndpoint` class per route.
+1. `TrailCompanion.Domain/Modules/<Module>/Entities/` (inherit `BaseEntity`, add `AppUserId` if owned) and `Repositories/I<Entity>Repository.cs` whose reads take `appUserId`.
+2. `TrailCompanion.Application/Modules/<Module>/Dtos/`, `Commands/`, `Queries/`: one file per operation, scoped by `appUserId`.
+3. `TrailCompanion.Infrastructure/Persistence/Configuration/<Module>/` and `Repositories/<Module>/` (inherit `Repository`, use `Context.Set<T>()`); register in `RepositoryConfiguration`. Add any unique index name to `UniqueConstraintConflicts`.
+4. `TrailCompanion.Api`: route constants in `ApiEndpoints`, a `Modules` tag, one `IEndpoint` class per route.
 5. Tests, then migration. Handler tests construct the handler with NSubstitute mocks and call `Handle(request, CancellationToken.None)`; one file per handler, `<RequestName>HandlerTests.cs`.
 
 ## 6. Guardrails
 
 - **Do not run `git commit`, `git push`, or anything that writes git history.** The user commits.
 - **Do not write comments in code.** No `//`, `/* */`, or XML doc comments, including `.csproj` and `.json` files. Code explains itself through naming.
-- **Do not add any reference to `Template.Domain`.**
-- **Do not reference `Template.Infrastructure` anywhere except `Program.cs`.**
-- **Do not reference ASP.NET Core from `Template.Application`.**
+- **Do not add any reference to `TrailCompanion.Domain`.**
+- **Do not reference `TrailCompanion.Infrastructure` anywhere except `Program.cs`.**
+- **Do not reference ASP.NET Core from `TrailCompanion.Application`.**
 - **Do not add a `DbSet<T>` for a feature entity**, or a navigation collection on `AppUser` pointing at one.
 - **Do not edit or delete a pushed migration.** Correct mistakes with a new one.
 - **Do not trust the EF in-memory provider for database guarantees** (unique indexes, lengths, nullability, transactions). Those belong in integration tests.

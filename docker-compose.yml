@@ -1,22 +1,22 @@
 services:
   db:
     image: postgres:17
-    container_name: template-db
+    container_name: trailcompanion-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: template
+      POSTGRES_DB: trailcompanion
     ports:
-      - "${TEMPLATE_DB_PORT:-5432}:5432"
+      - "${TRAILCOMPANION_DB_PORT:-5432}:5432"
     volumes:
-      - template-db-data:/var/lib/postgresql/data
+      - trailcompanion-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d template"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d trailcompanion"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
 
 volumes:
-  template-db-data:
+  trailcompanion-db-data:
