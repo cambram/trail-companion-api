@@ -58,6 +58,34 @@ public class RaceEditingEndpointTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
+    public async Task UpdateRace_StartTime_RoundTripsThroughDetail()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        await SignIn(client);
+        var race = await CreateRace(client);
+
+        await client.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("UTMB", null, new TimeOnly(6, 30)));
+        var detail = await client.GetFromJsonAsync<RaceDetailDto>($"/api/races/{race.Id}");
+
+        Assert.Equal(new TimeOnly(6, 30), detail!.StartTime);
+    }
+
+    [Fact]
+    public async Task UpdateRace_WithMalformedStartTime_Returns400()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        await SignIn(client);
+        var race = await CreateRace(client);
+
+        var response = await client.PutAsync($"/api/races/{race.Id}", new StringContent(
+            """{"name":"UTMB","startTime":"25:00"}""", System.Text.Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Reorder_PersistsSegmentAndItemOrder_AndRejectsIncompleteAndForeign()
     {
         using var factory = CreateFactory();

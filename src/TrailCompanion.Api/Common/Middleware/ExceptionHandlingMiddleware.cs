@@ -45,6 +45,7 @@ public class ExceptionHandlingMiddleware
             ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
             ValidationFailedException => (StatusCodes.Status400BadRequest, "Invalid request"),
             DomainException => (StatusCodes.Status400BadRequest, "Invalid request"),
+            BadHttpRequestException badRequest => (badRequest.StatusCode, "Invalid request"),
             _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred")
         };
 

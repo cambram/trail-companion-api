@@ -25,6 +25,7 @@ public record RaceDetailDto(
     Guid Id,
     string Name,
     int Target,
+    TimeOnly? StartTime,
     DateTime CreatedAtUtc,
     IReadOnlyList<SegmentDetailDto> Segments)
 {
@@ -32,6 +33,7 @@ public record RaceDetailDto(
         race.Id,
         race.Name,
         race.Target,
+        race.StartTime,
         race.CreatedAtUtc,
         segments);
 }

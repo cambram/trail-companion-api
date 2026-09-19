@@ -37,6 +37,7 @@ internal sealed class UpdateRaceCommandHandler : IRequestHandler<UpdateRaceComma
         CreateRaceCommandHandler.RequireValid(name, command.Request.Target);
 
         race.Name = name;
+        race.StartTime = command.Request.StartTime;
         if (command.Request.Target is { } target)
         {
             race.Target = target;

@@ -6,4 +6,5 @@ public class Races : BaseEntity
     public Guid AppUserId { get; set; }
     public string Name { get; set; } = string.Empty;
     public int Target { get; set; } = 60;
+    public TimeOnly? StartTime { get; set; }
 }

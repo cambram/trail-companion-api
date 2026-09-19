@@ -36,6 +36,22 @@ public class UpdateRaceCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_SetsAndClearsStartTime()
+    {
+        var race = GivenRace();
+        var handler = new UpdateRaceCommandHandler(_races);
+
+        var set = await handler.Handle(
+            new UpdateRaceCommand(_appUserId, race.Id, new CreateRaceRequest("A", null, new TimeOnly(6, 30))),
+            CancellationToken.None);
+        Assert.Equal(new TimeOnly(6, 30), set.StartTime);
+
+        var cleared = await handler.Handle(
+            new UpdateRaceCommand(_appUserId, race.Id, new CreateRaceRequest("A", null)), CancellationToken.None);
+        Assert.Null(cleared.StartTime);
+    }
+
+    [Fact]
     public async Task Handle_WhenMissingOrNotOwned_ThrowsNotFound()
     {
         var id = Guid.NewGuid();
