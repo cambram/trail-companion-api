@@ -1,134 +1,116 @@
-# CLAUDE.md
+# TrailCompanion API
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+.NET 10 Minimal API backing a trail-race planner app. Clean Architecture, MediatR CQRS, EF Core 10 on PostgreSQL 17, self-issued JWT auth. A runner registers, logs in, and plans races as ordered segments, each holding fuel items (carbs) used to total planned versus needed carbs against a per-hour target. Frontend lives in a separate repo; auth contract for clients is in `docs/auth.md`.
 
-# TrailCompanion API: .NET 10 / Clean Architecture / JWT auth / PostgreSQL
+# Domain
 
-## 1. Project Overview
+- `AppUser`: the account. JWT `sub` = `AppUser.Id`.
+- `Races`: owned by `AppUserId`. `Name`, `Target` (carbs per hour, default 60).
+- `Segments`: belong to a race. `Position`, `Name`, `Duration`, `Distance?`, `Notes`.
+- `Items`: belong to a segment. `Position`, `Name`, `Carbs`.
+- Only `Races` carries `AppUserId`. Segments and items are owned through the chain: handlers verify race and segment via repositories that take `appUserId`.
+- Entity classes are plural (`Races`, `Segments`, `Items`). Race features currently live in the `Users` module folders across all layers.
+- Routes: see `Endpoints/ApiEndpoints.cs` and the table in `docs/auth.md`. Nested: `/api/races/{raceId}/segments/{segmentId}/items`.
+- `docs/race-reads-option-a-single-endpoint.md` documents the nested `GET /api/races/{id}` DTO design.
 
-A blank-slate API template. The only feature is the `Users` module: register, log in, and read the current user. It exists to demonstrate every convention below; new features copy its shape.
-
-## 2. Technical Stack & Architecture
-
-- **Language/Framework**: C# / .NET 10 (`net10.0`), ASP.NET Core Minimal APIs. No controllers.
-- **Database**: PostgreSQL 17 via EF Core 10 (Npgsql), Docker Compose for local dev.
-- **Auth**: self-issued JWTs. Passwords are hashed with PBKDF2-HMAC-SHA256 (600,000 iterations, random salt, stored as `iterations.salt.hash`). Login signs an HS256 token with `sub = AppUser.Id` and a 15-minute expiry. `JwtBearer` validates signature, expiry, issuer and audience. No refresh tokens, no ASP.NET Core Identity.
-- **Business logic**: CQRS via MediatR. Each operation is a `Commands/` or `Queries/` request class paired with its `IRequestHandler` in the same file. Endpoints resolve `ISender` and `Send()` the request. No MediatR pipeline behaviours; validation is explicit in the handler.
-
-```
-TrailCompanion.Api → TrailCompanion.Infrastructure → TrailCompanion.Application → TrailCompanion.Domain
-TrailCompanion.Api → TrailCompanion.Application
-```
-
-- `src/TrailCompanion.Domain`: Entities, exceptions, repository interfaces. **Zero references.**
-- `src/TrailCompanion.Application`: Command/query handlers, DTOs, contracts (`IPasswordHasher`, `IAccessTokenIssuer`), `ICurrentUser`, `JwtOptions`.
-- `src/TrailCompanion.Infrastructure`: `ApplicationDbContext`, EF configurations, repositories, migrations, password hashing and token issuing.
-- `src/TrailCompanion.Api`: `Program.cs` composition root, endpoints, middleware, JWT validation, rate limiting.
-- `tests/`: `TrailCompanion.Application.Tests` (xUnit + NSubstitute), `TrailCompanion.Infrastructure.Tests` (EF in-memory, password hasher), `TrailCompanion.Infrastructure.IntegrationTests` (real PostgreSQL via Testcontainers, fresh migrated database per test class), `TrailCompanion.Api.Tests` (end-to-end HTTP via `WebApplicationFactory` against Testcontainers). Tag every Docker-backed test `[Trait("Category", "Integration")]`.
-
-### 2.1 `Common/` vs `Modules/`
-
-- **`Common/`** is organised by *technical kind*, always a plural noun: `Contracts/`, `Services/`, `Entities/`, `Exceptions/`, `Middleware/`, `Schemas/`, `Constants/`, `Extensions/`, `Configuration/`. Never a business concept.
-- **`Modules/<Module>/`** is organised by *business capability*, and the module folder name is **identical across Domain and Application** (and `Endpoints/<Module>/` in Api).
-- **Infrastructure groups by technical concern first**: `Persistence/Configuration/<Module>/`, `Repositories/<Module>/`, `Authentication/`. `Persistence/Migrations/` holds migrations.
-
-Each project root carries a `GlobalUsings.cs` and an empty `I<Layer>AssemblyMarker.cs`. Assembly scanning targets the marker. **Do not add a namespace to `GlobalUsings.cs` that generated migration files already import** (notably `Microsoft.EntityFrameworkCore`): the duplicate raises CS8933.
-
-**DI is one static class per concern**, in `Common/Configuration/DependencyInjection/<Concern>Configuration.cs`, composed by one per-layer extension in `Common/Configuration/Extensions/`: `AddApplication()`, `AddInfrastructure(IConfiguration)`, `AddApi()`. Registrations are explicit: a new repository adds a line to `RepositoryConfiguration`. Endpoints and MediatR handlers are the only things discovered by reflection.
-
-## 3. Essential Commands
+# Build & Development Commands
 
 ```bash
-docker compose up -d          # postgres:17 as trailcompanion-db
-dotnet build                  # must be clean with ZERO warnings
-dotnet test                   # integration tests need Docker
+docker compose up -d                            # postgres:17 as trailcompanion-db
+dotnet build                                    # ZERO errors, ZERO warnings
+dotnet test                                     # integration tests need Docker
 dotnet test --filter "Category!=Integration"    # unit only, no Docker
-dotnet run --project src/TrailCompanion.Api           # http://localhost:5170, Swagger at /swagger
+dotnet run --project src/TrailCompanion.Api     # http://localhost:5170, Swagger at /swagger
 ```
 
-Single test: `dotnet test --filter "FullyQualifiedName~LoginUserCommandHandlerTests"`. A filter matching nothing still exits 0; confirm the reported count.
+- Single test: `dotnet test --filter "FullyQualifiedName~LoginUserCommandHandlerTests"`. A filter matching nothing exits 0; confirm the reported count.
+- Add migration: `dotnet ef migrations add <Name> --project src/TrailCompanion.Infrastructure --startup-project src/TrailCompanion.Api --output-dir Persistence/Migrations`
+- Apply: `dotnet ef database update --project src/TrailCompanion.Infrastructure --startup-project src/TrailCompanion.Api`
+- JWT key (min 32 bytes, API refuses to start without it): `dotnet user-secrets set "Jwt:Key" "$(openssl rand -base64 48)" --project src/TrailCompanion.Api`
 
-Migrations:
+# Post-Generation Workflow
 
-```bash
-dotnet ef migrations add <Name> --project src/TrailCompanion.Infrastructure \
-  --startup-project src/TrailCompanion.Api --output-dir Persistence/Migrations
-dotnet ef database update --project src/TrailCompanion.Infrastructure --startup-project src/TrailCompanion.Api
+1. `dotnet build`: zero errors, zero warnings.
+2. `dotnet test`: all green.
+3. Entity or `IEntityTypeConfiguration` changed: generate migration.
+4. Report what actually ran and what it returned.
+
+# Architectural Patterns
+
+```
+Api -> Infrastructure -> Application -> Domain
+Api -> Application
 ```
 
-Secrets go to user-secrets, never a committed file. The API refuses to start without a signing key of at least 32 bytes:
+- `src/TrailCompanion.Domain`: entities, exceptions, repository interfaces. **Zero references.**
+- `src/TrailCompanion.Application`: handlers, DTOs, contracts (`IPasswordHasher`, `IAccessTokenIssuer`), `ICurrentUser`, `JwtOptions`.
+- `src/TrailCompanion.Infrastructure`: `ApplicationDbContext`, EF configurations, repositories, migrations, hashing, token issuing.
+- `src/TrailCompanion.Api`: `Program.cs` composition root, endpoints, middleware, JWT validation, rate limiting.
+- Tests: `Application.Tests` (xUnit + NSubstitute), `Infrastructure.Tests` (EF in-memory, hasher), `Infrastructure.IntegrationTests` (Testcontainers Postgres, fresh migrated DB per class), `Api.Tests` (`WebApplicationFactory` + Testcontainers). Tag every Docker-backed test `[Trait("Category", "Integration")]`.
+- `Common/` is organised by technical kind, plural noun (`Contracts/`, `Services/`, `Entities/`, `Exceptions/`, `Middleware/`, `Constants/`, `Extensions/`, `Configuration/`). Never a business concept.
+- `Modules/<Module>/` is organised by business capability. Module folder name is identical across Domain, Application, and `Endpoints/<Module>/` in Api.
+- Infrastructure groups by technical concern: `Persistence/Configuration/<Module>/`, `Repositories/<Module>/`, `Authentication/`, `Persistence/Migrations/`.
+- Each project root has `GlobalUsings.cs` and an empty `I<Layer>AssemblyMarker.cs`; assembly scanning targets the marker. Never add a namespace to `GlobalUsings.cs` that generated migrations already import (`Microsoft.EntityFrameworkCore`): CS8933.
+- DI: one static class per concern in `Common/Configuration/DependencyInjection/<Concern>Configuration.cs`, composed by `AddApplication()`, `AddInfrastructure(IConfiguration)`, `AddApi()`. Registrations are explicit (new repository = one line in `RepositoryConfiguration`). Only endpoints and MediatR handlers are found by reflection.
+- CQRS via MediatR. No pipeline behaviours; validation is explicit in the handler.
+- Middleware order is load-bearing: `CorrelationId` -> `ExceptionHandling` -> CORS -> `UseRateLimiter()` -> `UseAuthentication()` -> `UseAuthorization()` -> endpoints.
 
-```bash
-dotnet user-secrets set "Jwt:Key" "$(openssl rand -base64 48)" --project src/TrailCompanion.Api
-```
+# Code Style & Conventions
 
-## 4. Post-Generation Workflow
+**Requests and handlers**
+- Request classes: `sealed`, values via constructor, get-only properties. Never positional records.
+- Handlers: `internal sealed <RequestName>Handler`, same file as the request, in `Commands/` or `Queries/`.
+- Shared request validation goes in an `internal static <Thing>RequestRules` class (see `ItemRequestRules`) that throws `ValidationFailedException`.
+- DTOs are records in `Modules/<Module>/Dtos/`, with a static `FromEntity` where needed.
+- Handlers throw domain exceptions; `ExceptionHandlingMiddleware` maps them: `ValidationFailedException`/`DomainException` 400, `UnauthorizedException` 401, `NotFoundException` 404, `ConflictException` 409, else 500. All `ProblemDetails` with `correlationId`.
 
-1. **Build**: `dotnet build`, zero errors and zero warnings.
-2. **Test**: `dotnet test`, all green.
-3. **Migration**: if an entity or `IEntityTypeConfiguration` changed, generate the migration now.
-4. **Verify**: report what actually ran and what it returned.
+**Endpoints**
+- One `internal sealed` class per endpoint implementing `IEndpoint`, in `Endpoints/<Module>/<Verb><Noun>Endpoint.cs`. A class without `IEndpoint` is silently skipped; if a route 404s, check that first.
+- Routes are constants in `ApiEndpoints.cs`, nested per module under `api`. No raw path strings.
+- Call `RequireAuthorization()` or `AllowAnonymous()` on each endpoint. No route group inherits either. Verify new endpoints return 401 unauthenticated.
+- `WithName(Name)` with `Name = nameof(TheEndpointClass)`; `WithTags(Modules.X)` from `Common/Constants/Modules.cs`.
+- Bodies map only: no validation, no ownership checks, no `try`/`catch`. Injected services carry `[FromServices]`.
 
-## 5. Coding Standards
+**Ownership**
+- Endpoint supplies `appUserId` from `ICurrentUser`, never from route or body.
+- Handlers take `appUserId` and filter on it. Ownership is enforced in the handler, not the endpoint.
+- Cross-user read throws `NotFoundException` (404, never 403).
 
-**Ownership model**:
+**Persistence and layering**
+- Domain: plain POCOs, no framework attributes. Persistence rules live in `IEntityTypeConfiguration<T>`.
+- Every entity inherits `BaseEntity`; `ApplicationDbContext` stamps `CreatedAtUtc`/`UpdatedAtUtc`.
+- Only shared entities get a declared `DbSet`. Feature entities enter via `ApplyConfigurationsFromAssembly` and are reached through `Context.Set<T>()`.
+- Application reaches identity through `ICurrentUser`, never `HttpContext`.
+- Unique index violations become `ConflictException` via `Repository.SaveChangesAsync` and `UniqueConstraintConflicts`. Add new unique index names there.
 
-- `AppUser` is the account. The JWT `sub` claim is `AppUser.Id`; `ICurrentUser.AppUserId` reads it.
-- Owned entities carry an `AppUserId` foreign key.
-- Handlers take `appUserId` and filter on it. **Ownership is enforced in the handler, not the endpoint.** The endpoint supplies it from `ICurrentUser`, never from the route or body.
-- A cross-user read throws `NotFoundException` → **404, not 403**. 403 would confirm another user's record exists.
-
-**Auth rules**:
-
-- Login returns the same 401 for unknown email and wrong password, and always runs the hash (`IPasswordHasher.Verify(password, null)` hashes against a dummy) so timing does not reveal whether an email exists.
-- Emails are trimmed and lowercased before storage and lookup (`UserEmail.Normalize`). Uniqueness is a DB unique index; `Repository.SaveChangesAsync` translates the violation to `ConflictException` via `UniqueConstraintConflicts`.
-- The login route has a fixed-window rate limit (5 per minute per IP, `RateLimitingConfiguration`).
+**Auth**
+- PBKDF2-HMAC-SHA256, 600,000 iterations, stored `iterations.salt.hash`. HS256 JWT, 15 minute expiry, no refresh tokens, no ASP.NET Core Identity.
+- Login returns the same 401 for unknown email and wrong password and always hashes (`IPasswordHasher.Verify(password, null)`).
+- Emails go through `UserEmail.Normalize` (trim, lowercase) before storage and lookup.
+- Login route: fixed-window rate limit, 5 per minute per IP (`RateLimitingConfiguration`).
 - Never put secrets or personal data in the JWT. HTTPS only outside local dev.
 
-**Layering**:
+**Observability**
+- Every request gets a correlation id: inbound `X-Correlation-Id` if it passes `CorrelationContext.Sanitize`, else a fresh one. Echoed on the response and in `ProblemDetails.correlationId`. Logging scopes use message templates.
 
-- Domain: plain POCOs, no framework attributes. Persistence rules live in `IEntityTypeConfiguration<T>`.
-- Application reaches HTTP identity through `ICurrentUser`, never `HttpContext`, and never references ASP.NET Core.
-- Only shared entities get a declared `DbSet`. Feature entities enter the model via `ApplyConfigurationsFromAssembly` and are reached through `Context.Set<T>()`.
-- Every entity inherits `BaseEntity`; `ApplicationDbContext` stamps `CreatedAtUtc`/`UpdatedAtUtc`.
+# Adding a Feature
 
-**Requests and handlers**:
+Module names are PascalCase plural nouns, reused verbatim in every layer.
 
-- Request classes are `sealed`, take values through the constructor, and expose get-only properties. Never a positional record.
-- Handlers are `internal sealed <RequestName>Handler`, in the same file as the request.
-- Request/response DTOs live in `Modules/<Module>/Dtos/` as records, with a static `FromEntity` mapper where needed.
-- Handlers throw domain exceptions; `ExceptionHandlingMiddleware` translates them: `ValidationFailedException`/`DomainException` → 400, `UnauthorizedException` → 401, `NotFoundException` → 404, `ConflictException` → 409, else 500. All `ProblemDetails` with `correlationId`.
+1. Domain: `Modules/<Module>/Entities/` (inherit `BaseEntity`, `AppUserId` if owned) and `Repositories/I<Entity>Repository.cs` whose reads take `appUserId`.
+2. Application: `Modules/<Module>/Dtos|Commands|Queries/`, one file per operation, scoped by `appUserId`.
+3. Infrastructure: `Persistence/Configuration/<Module>/` and `Repositories/<Module>/` (inherit `Repository`, use `Context.Set<T>()`); register in `RepositoryConfiguration`.
+4. Api: route constants in `ApiEndpoints`, a `Modules` tag, one `IEndpoint` per route.
+5. Tests, then migration. Handler tests build the handler with NSubstitute mocks and call `Handle(request, CancellationToken.None)`; one file per handler, `<RequestName>HandlerTests.cs`.
 
-**Endpoints**:
+# Guardrails
 
-- **One class per endpoint**, `internal sealed`, implementing `IEndpoint`. Files live in `Endpoints/<Module>/`, named `<Verb><Noun>Endpoint.cs`.
-- **Routes are constants** in `Endpoints/ApiEndpoints.cs`, nested per module under the `api` base. No raw path strings.
-- `MapApiEndpoints()` is the single registration call. A class that does not implement `IEndpoint` is **silently skipped**; if a new route 404s, check the interface first.
-- Protected endpoints call `RequireAuthorization()` individually; public ones call `AllowAnonymous()`. No route group inherits either. Verify new endpoints return 401 unauthenticated.
-- `WithName(Name)` where `Name = nameof(TheEndpointClass)`; `WithTags(Modules.X)` from `Common/Constants/Modules.cs`.
-- Endpoint bodies map and nothing else: no validation, no ownership checks, no `try`/`catch`.
-- Injected services carry explicit `[FromServices]`.
-
-**Observability**: every request gets a correlation id: inbound `X-Correlation-Id` if it passes `CorrelationContext.Sanitize`, otherwise a fresh one. It is echoed on the response and appears in `ProblemDetails.correlationId`. Logging scopes use message templates.
-
-**Middleware order is load-bearing**: `CorrelationId` → `ExceptionHandling` → CORS → `UseRateLimiter()` → `UseAuthentication()` → `UseAuthorization()` → endpoints.
-
-**Adding a module** (PascalCase plural noun, reused verbatim in every layer):
-
-1. `TrailCompanion.Domain/Modules/<Module>/Entities/` (inherit `BaseEntity`, add `AppUserId` if owned) and `Repositories/I<Entity>Repository.cs` whose reads take `appUserId`.
-2. `TrailCompanion.Application/Modules/<Module>/Dtos/`, `Commands/`, `Queries/`: one file per operation, scoped by `appUserId`.
-3. `TrailCompanion.Infrastructure/Persistence/Configuration/<Module>/` and `Repositories/<Module>/` (inherit `Repository`, use `Context.Set<T>()`); register in `RepositoryConfiguration`. Add any unique index name to `UniqueConstraintConflicts`.
-4. `TrailCompanion.Api`: route constants in `ApiEndpoints`, a `Modules` tag, one `IEndpoint` class per route.
-5. Tests, then migration. Handler tests construct the handler with NSubstitute mocks and call `Handle(request, CancellationToken.None)`; one file per handler, `<RequestName>HandlerTests.cs`.
-
-## 6. Guardrails
-
-- **Do not run `git commit`, `git push`, or anything that writes git history.** The user commits.
-- **Do not write comments in code.** No `//`, `/* */`, or XML doc comments, including `.csproj` and `.json` files. Code explains itself through naming.
-- **Do not add any reference to `TrailCompanion.Domain`.**
-- **Do not reference `TrailCompanion.Infrastructure` anywhere except `Program.cs`.**
-- **Do not reference ASP.NET Core from `TrailCompanion.Application`.**
-- **Do not add a `DbSet<T>` for a feature entity**, or a navigation collection on `AppUser` pointing at one.
-- **Do not edit or delete a pushed migration.** Correct mistakes with a new one.
-- **Do not trust the EF in-memory provider for database guarantees** (unique indexes, lengths, nullability, transactions). Those belong in integration tests.
-- **Do not put real secrets or connection strings in `appsettings.json`.** User-secrets only.
+- Do not run `git commit`, `git push`, or anything that writes git history. The user commits.
+- Do not write comments in code: no `//`, `/* */`, XML docs, including `.csproj` and `.json`. Naming carries meaning.
+- Do not add any reference to `TrailCompanion.Domain`.
+- Do not reference `TrailCompanion.Infrastructure` anywhere except `Program.cs`.
+- Do not reference ASP.NET Core from `TrailCompanion.Application`.
+- Do not add a `DbSet<T>` for a feature entity, or a navigation collection on `AppUser` pointing at one.
+- Do not edit or delete a pushed migration. Fix mistakes with a new one.
+- Do not trust the EF in-memory provider for DB guarantees (unique indexes, lengths, nullability, transactions). Use integration tests.
+- Do not put real secrets or connection strings in `appsettings.json`. User-secrets only.

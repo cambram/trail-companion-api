@@ -51,7 +51,7 @@ internal sealed class CreateRaceCommandHandler : IRequestHandler<CreateRaceComma
         return RaceDto.FromEntity(race);
     }
 
-    private static void RequireValid(string name, int? target)
+    internal static void RequireValid(string name, int? target)
     {
         var failures = new List<ValidationFailure>();
 

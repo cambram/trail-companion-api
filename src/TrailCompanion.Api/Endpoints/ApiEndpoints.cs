@@ -15,12 +15,15 @@ internal static class ApiEndpoints
         public const string GetRaces = RaceBase;
         public const string GetRace = $"{RaceBase}/{{id:guid}}";
         public const string DeleteRace = $"{RaceBase}/{{id:guid}}";
+        public const string UpdateRace = $"{RaceBase}/{{id:guid}}";
         private const string SegmentBase = $"{RaceBase}/{{raceId:guid}}/segments";
         public const string CreateSegment = SegmentBase;
+        public const string ReorderSegments = $"{SegmentBase}/order";
         public const string UpdateSegment = $"{SegmentBase}/{{id:guid}}";
         public const string DeleteSegment = $"{SegmentBase}/{{id:guid}}";
         private const string ItemBase = $"{SegmentBase}/{{segmentId:guid}}/items";
         public const string CreateItem = ItemBase;
+        public const string ReorderItems = $"{ItemBase}/order";
         public const string UpdateItem = $"{ItemBase}/{{id:guid}}";
         public const string DeleteItem = $"{ItemBase}/{{id:guid}}";
     }
