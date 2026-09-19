@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Race Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root, :root[data-theme="light"]{
+  --bg:#EFEFF1; --card:#FFFFFF; --field:#F4F5F7; --ink:#0E0F11; --ink-soft:#3A3F45; --muted:#8A8F98; --line:#EAEBEE;
+  --btn:#0E0F11; --btn-ink:#FFFFFF;
+  --blue:#2563EB; --blue-soft:#E7EFFD;
+  --green:#12804B; --green-soft:#E6F6EC;
+  --red:#D23B3B; --red-soft:#FCEBEB;
+  --shadow:0 1px 2px rgba(16,24,40,.04), 0 10px 26px rgba(16,24,40,.05);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C0D0F; --card:#17191C; --field:#1F2227; --ink:#F2F3F5; --ink-soft:#D2D6DB; --muted:#8F959E; --line:#24282D;
+    --btn:#FFFFFF; --btn-ink:#0E0F11;
+    --blue:#7FA9FF; --blue-soft:#1B2436;
+    --green:#5BD48D; --green-soft:#12271C;
+    --red:#FF7B7B; --red-soft:#2B1717;
+    --shadow:none;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C0D0F; --card:#17191C; --field:#1F2227; --ink:#F2F3F5; --ink-soft:#D2D6DB; --muted:#8F959E; --line:#24282D;
+  --btn:#FFFFFF; --btn-ink:#0E0F11;
+  --blue:#7FA9FF; --blue-soft:#1B2436;
+  --green:#5BD48D; --green-soft:#12271C;
+  --red:#FF7B7B; --red-soft:#2B1717;
+  --shadow:none;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:16px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button,input,textarea{font:inherit;color:inherit;font-variant-numeric:tabular-nums}
+button{cursor:pointer;border:0;background:none}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+h1,h2,p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:.8125rem}
+.row{display:flex;align-items:center;gap:8px}
+.between{justify-content:space-between}
+.grow{flex:1;min-width:0}
+
+.app{max-width:520px;margin:0 auto;padding:8px 18px 40px}
+.head{display:flex;align-items:center;gap:12px;padding:12px 0 18px}
+h1{font-size:1.55rem;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.sub{font-size:.8125rem;color:var(--muted);margin-top:1px}
+.circ{width:42px;height:42px;border-radius:50%;background:var(--card);display:grid;place-items:center;flex:none;box-shadow:var(--shadow)}
+
+.card{background:var(--card);border-radius:22px;padding:16px;box-shadow:var(--shadow)}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+/* hero (black balance-card style) */
+.hero{background:var(--btn);color:var(--btn-ink);border-radius:26px;padding:18px}
+.hero .lab{font-size:.8125rem;opacity:.6;font-weight:600}
+.hero .big{font-size:2.1rem;font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-top:2px}
+.hero input[type=text],.hero input[type=number]{background:transparent;border:0;color:inherit;padding:0;width:100%;font-size:1.35rem;font-weight:800;letter-spacing:-.03em;min-height:36px;border-radius:0}
+.hero input::placeholder{color:currentColor;opacity:.45}
+.pillfield{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border-radius:999px;padding:4px 12px;flex:none}
+.pillfield input[type=number]{width:44px;text-align:right;font-size:1rem;font-weight:700;min-height:32px;padding:0}
+.pillfield span{font-size:.8125rem;opacity:.7;font-weight:600}
+.hero .rail{margin-top:14px}
+.hero .rail .bar{background:rgba(255,255,255,.2)}
+.hero .rail .fill{background:var(--btn-ink)}
+
+.rail .bar{height:6px;border-radius:99px;background:var(--field);overflow:hidden}
+.rail .fill{height:100%;border-radius:99px;background:var(--ink);transition:width .2s}
+.rail .cap{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;font-size:.8125rem;font-weight:600}
+
+.btn{min-height:50px;padding:0 20px;border-radius:999px;background:var(--btn);color:var(--btn-ink);font-weight:700;font-size:.95rem;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.light{background:var(--field);color:var(--ink)}
+.btn.onhero{background:var(--btn-ink);color:var(--btn)}
+.btn.block{width:100%}
+.btn.sm{min-height:40px;font-size:.8125rem;padding:0 14px}
+.btn.quiet{background:transparent;color:var(--muted);font-weight:600;font-size:.8125rem;min-height:40px;padding:0}
+.btn.quiet.armed{color:var(--red)}
+.ib{width:36px;height:36px;flex:none;border-radius:50%;background:var(--field);display:grid;place-items:center;color:var(--ink-soft)}
+.ib:disabled{opacity:.35;cursor:default}
+.ib.dark{background:var(--btn);color:var(--btn-ink)}
+.ib.lg{width:46px;height:46px}
+
+label.f{display:block;font-size:.75rem;font-weight:700;color:var(--muted);margin-bottom:6px}
+input[type=text],input[type=number],textarea{width:100%;min-height:46px;background:var(--field);border:1px solid transparent;border-radius:14px;padding:11px 14px;font-size:16px;font-weight:600}
+textarea{min-height:66px;resize:vertical;line-height:1.45;font-weight:500}
+input.invalid{border-color:var(--red)}
+input::placeholder,textarea::placeholder{color:var(--muted);font-weight:500}
+
+.pill{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 12px;font-size:.75rem;font-weight:700}
+.pill.blue{background:var(--blue-soft);color:var(--blue)}
+.pill.green{background:var(--green-soft);color:var(--green)}
+.pill.red{background:var(--red-soft);color:var(--red)}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+.seg-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.seg-num{width:38px;height:38px;border-radius:14px;background:var(--field);display:grid;place-items:center;font-weight:800;font-size:.9rem;flex:none}
+.seg-name{background:transparent!important;border:0!important;padding:0!important;min-height:34px!important;font-size:1.05rem;font-weight:800;letter-spacing:-.02em}
+.grid3{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}
+.readout{background:var(--field);border-radius:14px;min-height:46px;display:flex;align-items:center;padding:0 14px;font-weight:700;white-space:nowrap}
+
+.sec{font-size:.75rem;font-weight:800;color:var(--muted);margin:16px 0 8px}
+.item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.item .nm{font-weight:600;font-size:.95rem}
+.item .c{font-weight:800;white-space:nowrap}
+.item .ctl{display:flex;gap:6px}
+.item .ib{width:32px;height:32px}
+.add{display:grid;grid-template-columns:1fr 72px auto;gap:8px;margin-top:12px}
+
+.race{display:block;width:100%;text-align:left;padding:16px;margin-bottom:12px}
+.empty{text-align:center;padding:26px 16px}
+.foot{display:flex;justify-content:flex-end;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+const KEY = 'race-planner-mvp-v1';
+const uid = () => Math.random().toString(36).slice(2,10);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const fmtHM = min => `${Math.floor(min/60)}:${pad(Math.round(min%60))}`;
+const fmtDur = min => { const r = Math.round(min); return `${Math.floor(r/60)}h${pad(r%60)}`; };
+const fmtPace = m => { const s = Math.round(m*60); return `${Math.floor(s/60)}:${pad(s%60)}`; };
+function parseDur(v){
+  v = v.trim(); if (!v) return 0;
+  let m = v.match(/^(\d{1,2}):([0-5]\d)$/); if (m) return +m[1]*60 + +m[2];
+  if (/^\d{1,2}$/.test(v)) return +v*60;
+  return null;
+}
+const sv = (p, w=18) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ic = {
+  up:sv('<path d="M6 15l6-6 6 6"/>'), down:sv('<path d="M6 9l6 6 6-6"/>'),
+  x:sv('<path d="M6 6l12 12M18 6L6 18"/>',15), plus:sv('<path d="M12 5v14M5 12h14"/>',20),
+  left:sv('<path d="M15 5l-7 7 7 7"/>',20), right:sv('<path d="M9 5l7 7-7 7"/>',18),
+  flag:sv('<path d="M5 21V4h12l-2 4 2 4H5"/>',20)
+};
+
+/* ---------- data ---------- */
+function seed(){
+  const it = (name, carbs) => ({id:uid(), name, carbs});
+  return { races: [{ id:uid(), name:'UTCT 55K', target:60, segments:[
+    { id:uid(), name:'Start to Aid 1', duration:90, distance:11, notes:'Easy on the first climb. Hike anything steep.',
+      items:[it('Maurten Gel 160',40), it('Tailwind, 1 scoop',25), it('Maurten Gel 160',40)] },
+    { id:uid(), name:'Aid 1 to Aid 2', duration:180, distance:15, notes:'Biggest climb of the day. Power-hike up, run the flats.',
+      items:[it('Maurten Gel 160',40), it('Banana',27), it('Clif Bloks, 3 chews',24), it('Maurten Gel 160',40)] }
+  ]}]};
+}
+function load(){ try { const v = JSON.parse(localStorage.getItem(KEY)); return v && Array.isArray(v.races) ? v : null; } catch(e){ return null; } }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(db)); } catch(e){} }
+let db = load() || seed();
+const S = { raceId:null, confirm:null, confirmTimer:null, focus:null };
+
+const race = () => db.races.find(r => r.id === S.raceId);
+const segById = (r, id) => r.segments.find(s => s.id === id);
+const planned = s => s.items.reduce((a,i) => a + (+i.carbs||0), 0);
+const needed = (r, s) => Math.round(s.duration/60 * (+r.target||0));
+const raceTotals = r => r.segments.reduce((t,s) => ({duration:t.duration+(s.duration||0), planned:t.planned+planned(s), need:t.need+needed(r,s)}), {duration:0, planned:0, need:0});
+const pct = (p,n) => n ? Math.min(100, Math.round(p/n*100)) : 0;
+function move(arr, i, d){ const j = i+d; if (j<0 || j>=arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; }
+
+/* ---------- views ---------- */
+function vList(){
+  const cards = db.races.map(r => {
+    const t = raceTotals(r), ok = t.need && t.planned >= t.need*0.95;
+    return `<button class="card race" data-act="open" data-id="${r.id}">
+      <div class="row between">
+        <div class="row" style="gap:12px"><span class="circ" style="width:40px;height:40px;background:var(--field);box-shadow:none">${ic.flag}</span>
+          <span><b style="font-size:1.05rem;letter-spacing:-.02em">${esc(r.name || 'Untitled race')}</b>
+          <div class="small muted">${r.segments.length} segment${r.segments.length===1?'':'s'}${t.duration?`, ${fmtDur(t.duration)}`:''}</div></span></div>
+        <span class="ib">${ic.right}</span>
+      </div>
+      ${t.need ? `<div class="rail" style="margin-top:14px"><div class="bar"><div class="fill" style="width:${pct(t.planned,t.need)}%"></div></div>
+        <div class="cap"><span class="muted">${t.planned} g planned of ${t.need} g</span><span class="pill ${ok?'green':'red'}"><span class="dot"></span>${ok?'On target':`${t.need-t.planned} g short`}</span></div></div>` : ''}
+    </button>`;
+  }).join('');
+  return `<header class="head"><div class="grow"><h1>Races</h1><div class="sub">Plan each segment's fuel and pace</div></div></header>
+    ${cards || `<div class="card empty"><b>No races yet</b><p class="small muted" style="margin-top:4px">Create a race, then split it into segments.</p></div>`}
+    <div class="card" style="margin-top:6px">
+      <label class="f" for="newRace">New race</label>
+      <input type="text" id="newRace" placeholder="Race name" data-enter="addRace">
+      <button class="btn block" style="margin-top:12px" data-act="addRace">${ic.plus}Create race</button>
+    </div>`;
+}
+
+function segStatus(r, s){
+  const p = planned(s), n = needed(r, s);
+  if (!s.duration) return {p, n, none:true};
+  const ok = p >= n*0.95;
+  return {p, n, ok, label: ok ? (p > n ? `${p-n} g over` : 'On target') : `${n-p} g short`};
+}
+function segSumHTML(r, s){
+  const st = segStatus(r, s);
+  if (st.none) return `<div class="rail" id="sum-${s.id}" style="margin-top:14px"><div class="bar"></div>
+    <div class="cap"><span class="muted">Add a predicted time to see carbs needed</span></div></div>`;
+  return `<div class="rail" id="sum-${s.id}" style="margin-top:14px">
+    <div class="bar"><div class="fill" style="width:${pct(st.p,st.n)}%"></div></div>
+    <div class="cap"><span><b>${st.p} g</b> <span class="muted">of ${st.n} g, ${fmtDur(s.duration)} at ${+r.target||0} g/h</span></span>
+      <span class="pill ${st.ok?'green':'red'}"><span class="dot"></span>${st.label}</span></div></div>`;
+}
+const paceText = s => s.duration && s.distance > 0 ? `${fmtPace(s.duration/s.distance)} /km` : '– /km';
+
+function vSegment(r, s, i){
+  const items = s.items.map((it, k) => `<div class="item">
+      <span class="nm">${esc(it.name)}</span><span class="c">${+it.carbs||0} g</span>
+      <span class="ctl">
+        <button class="ib" data-act="itemMove" data-seg="${s.id}" data-k="${k}" data-d="-1" ${k===0?'disabled':''} aria-label="Move ${esc(it.name)} earlier">${ic.up}</button>
+        <button class="ib" data-act="itemMove" data-seg="${s.id}" data-k="${k}" data-d="1" ${k===s.items.length-1?'disabled':''} aria-label="Move ${esc(it.name)} later">${ic.down}</button>
+        <button class="ib" data-act="itemDel" data-seg="${s.id}" data-k="${k}" aria-label="Remove ${esc(it.name)}">${ic.x}</button>
+      </span></div>`).join('');
+  const armed = S.confirm === 'seg-'+s.id;
+  return `<section class="card" id="seg-${s.id}">
+    <div class="seg-head">
+      <span class="seg-num">${i+1}</span>
+      <input type="text" class="seg-name grow" value="${esc(s.name)}" placeholder="e.g. Aid 1 to Aid 2" data-seg="${s.id}" data-f="name" aria-label="Segment name">
+      <button class="ib" data-act="segMove" data-seg="${s.id}" data-d="-1" ${i===0?'disabled':''} aria-label="Move segment up">${ic.up}</button>
+      <button class="ib" data-act="segMove" data-seg="${s.id}" data-d="1" ${i===r.segments.length-1?'disabled':''} aria-label="Move segment down">${ic.down}</button>
+    </div>
+    <div class="grid3">
+      <div><label class="f" for="d-${s.id}">Time</label><input type="text" id="d-${s.id}" inputmode="numeric" value="${s.duration?fmtHM(s.duration):''}" placeholder="3:00" data-seg="${s.id}" data-f="duration"></div>
+      <div><label class="f" for="k-${s.id}">Distance</label><input type="number" id="k-${s.id}" inputmode="decimal" min="0" step="0.1" value="${s.distance||''}" placeholder="15 km" data-seg="${s.id}" data-f="distance"></div>
+      <div><label class="f">Pace</label><div class="readout" id="pace-${s.id}">${paceText(s)}</div></div>
+    </div>
+    <div style="margin-top:12px"><label class="f" for="p-${s.id}">Pacing plan</label>
+      <textarea id="p-${s.id}" placeholder="e.g. Hike the climbs, run the flats" data-seg="${s.id}" data-f="notes">${esc(s.notes)}</textarea></div>
+    <p class="sec">Nutrition, in order</p>
+    ${items || '<p class="small muted" style="padding:8px 0;border-top:1px solid var(--line)">Nothing added yet.</p>'}
+    <div class="add">
+      <input type="text" placeholder="Item, e.g. Maurten Gel 160" id="nn-${s.id}" data-enter="itemAdd" data-seg="${s.id}" aria-label="Item name">
+      <input type="number" inputmode="numeric" min="0" placeholder="g" id="nc-${s.id}" data-enter="itemAdd" data-seg="${s.id}" aria-label="Carbs in grams">
+      <button class="ib dark lg" data-act="itemAdd" data-seg="${s.id}" aria-label="Add item">${ic.plus}</button>
+    </div>
+    ${segSumHTML(r, s)}
+    <div class="foot"><button class="btn quiet ${armed?'armed':''}" data-act="del" data-key="seg-${s.id}">${armed?'Tap again to delete':'Delete segment'}</button></div>
+  </section>`;
+}
+
+function heroHTML(r){
+  const t = raceTotals(r), ok = t.need && t.planned >= t.need*0.95;
+  return `<div class="hero" id="hero">
+    <div class="row between" style="gap:12px;align-items:center">
+      <input type="text" value="${esc(r.name)}" placeholder="Race name" data-race="name" aria-label="Race name">
+      <span class="pillfield"><input type="number" inputmode="numeric" min="0" value="${r.target}" data-race="target" aria-label="Carb target per hour"><span>g/h</span></span>
+    </div>
+    <div class="lab" style="margin-top:14px">Carbs planned</div>
+    <div class="big">${t.planned} g <span style="font-size:1rem;font-weight:600;opacity:.6">of ${t.need} g needed</span></div>
+    <div class="rail"><div class="bar"><div class="fill" style="width:${pct(t.planned,t.need)}%"></div></div>
+      <div class="cap"><span style="opacity:.65">${r.segments.length} segment${r.segments.length===1?'':'s'}${t.duration?`, ${fmtDur(t.duration)}`:''}</span>
+      <span style="opacity:.9">${t.need ? (ok ? 'On target' : `${t.need-t.planned} g short`) : ''}</span></div></div>
+    <button class="btn onhero block" style="margin-top:16px" data-act="segAdd">${ic.plus}Add segment</button>
+  </div>`;
+}
+
+function vRace(){
+  const r = race(), armed = S.confirm === 'race-'+r.id;
+  return `<header class="head">
+      <button class="circ" data-act="home" aria-label="Back to races">${ic.left}</button>
+      <div class="grow" style="text-align:center;font-weight:800">Race plan</div>
+      <span class="circ" style="visibility:hidden"></span>
+    </header>
+    <div class="stack">
+      ${heroHTML(r)}
+      ${r.segments.map((s,i) => vSegment(r, s, i)).join('')}
+      ${r.segments.length ? '' : `<div class="card empty"><b>No segments yet</b><p class="small muted" style="margin-top:4px">Add one for each stretch between aid stations.</p></div>`}
+      <div class="foot" style="justify-content:center;margin-top:8px"><button class="btn quiet ${armed?'armed':''}" data-act="del" data-key="race-${r.id}">${armed?'Tap again to delete this race':'Delete race'}</button></div>
+    </div>`;
+}
+
+function render(){
+  document.getElementById('app').innerHTML = S.raceId && race() ? vRace() : vList();
+  if (S.focus){ const el = document.getElementById(S.focus); if (el) el.focus(); S.focus = null; }
+}
+function refreshComputed(s){
+  const r = race();
+  const sum = document.getElementById('sum-'+s.id); if (sum) sum.outerHTML = segSumHTML(r, s);
+  const pace = document.getElementById('pace-'+s.id); if (pace) pace.textContent = paceText(s);
+  const hero = document.getElementById('hero'); if (hero){
+    const active = document.activeElement, keep = active && active.dataset && active.dataset.race;
+    if (!keep) hero.outerHTML = heroHTML(r);
+    else { const big = hero.querySelector('.big'), t = raceTotals(r);
+      big.innerHTML = `${t.planned} g <span style="font-size:1rem;font-weight:600;opacity:.6">of ${t.need} g needed</span>`;
+      hero.querySelector('.fill').style.width = pct(t.planned,t.need)+'%'; }
+  }
+}
+
+/* ---------- actions ---------- */
+const ACT = {
+  open: el => { S.raceId = el.dataset.id; S.confirm = null; render(); window.scrollTo(0,0); },
+  home: () => { S.raceId = null; S.confirm = null; render(); window.scrollTo(0,0); },
+  addRace: () => {
+    const input = document.getElementById('newRace'), name = input.value.trim();
+    if (!name){ input.classList.add('invalid'); input.focus(); return; }
+    const r = {id:uid(), name, target:60, segments:[]};
+    db.races.push(r); save(); S.raceId = r.id; render(); window.scrollTo(0,0);
+  },
+  segAdd: () => {
+    const r = race(), s = {id:uid(), name:`Segment ${r.segments.length+1}`, duration:0, distance:0, notes:'', items:[]};
+    r.segments.push(s); save(); render();
+    const el = document.querySelector(`#seg-${s.id} .seg-name`); if (el){ el.scrollIntoView({block:'center'}); el.select(); }
+  },
+  segMove: el => { const r = race(); move(r.segments, r.segments.findIndex(s => s.id === el.dataset.seg), +el.dataset.d); save(); render(); },
+  itemAdd: el => {
+    const s = segById(race(), el.dataset.seg);
+    const n = document.getElementById('nn-'+s.id), c = document.getElementById('nc-'+s.id);
+    const name = n.value.trim(), carbs = c.value.trim();
+    n.classList.toggle('invalid', !name); c.classList.toggle('invalid', carbs === '' || +carbs < 0);
+    if (!name){ n.focus(); return; }
+    if (carbs === '' || +carbs < 0){ c.focus(); return; }
+    s.items.push({id:uid(), name, carbs:Math.round(+carbs)}); save();
+    S.focus = 'nn-'+s.id; render();
+  },
+  itemMove: el => { const s = segById(race(), el.dataset.seg); move(s.items, +el.dataset.k, +el.dataset.d); save(); render(); },
+  itemDel: el => { const s = segById(race(), el.dataset.seg); s.items.splice(+el.dataset.k, 1); save(); render(); },
+  del: el => {
+    const key = el.dataset.key;
+    if (S.confirm !== key){
+      S.confirm = key; clearTimeout(S.confirmTimer);
+      S.confirmTimer = setTimeout(() => { S.confirm = null; render(); }, 3000);
+      render(); return;
+    }
+    clearTimeout(S.confirmTimer); S.confirm = null;
+    if (key.startsWith('race-')){ db.races = db.races.filter(r => 'race-'+r.id !== key); S.raceId = null; }
+    else { const r = race(); r.segments = r.segments.filter(s => 'seg-'+s.id !== key); }
+    save(); render();
+  }
+};
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el || el.disabled) return;
+  ACT[el.dataset.act]?.(el);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const el = e.target.closest('[data-enter]'); if (!el) return;
+  e.preventDefault(); ACT[el.dataset.enter]?.(el);
+});
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.id === 'newRace' || el.id?.startsWith('nn-') || el.id?.startsWith('nc-')) el.classList.remove('invalid');
+  if (el.dataset.race){
+    const r = race();
+    if (el.dataset.race === 'name') r.name = el.value;
+    else { r.target = Math.max(0, +el.value || 0); r.segments.forEach(refreshComputed); }
+    save(); return;
+  }
+  if (el.dataset.seg && el.dataset.f){
+    const s = segById(race(), el.dataset.seg), f = el.dataset.f;
+    if (f === 'duration'){
+      const v = parseDur(el.value);
+      el.classList.toggle('invalid', v === null);
+      if (v === null) return;
+      s.duration = v;
+    } else if (f === 'distance') s.distance = Math.max(0, +el.value || 0);
+    else s[f] = el.value;
+    save(); refreshComputed(s);
+  }
+});
+document.addEventListener('focusout', e => {
+  const el = e.target;
+  if (el.dataset?.f === 'duration' && !el.classList.contains('invalid')){
+    const s = segById(race(), el.dataset.seg); if (s) el.value = s.duration ? fmtHM(s.duration) : '';
+  }
+});
+
+render();
+</script>
+</body>
+</html>
