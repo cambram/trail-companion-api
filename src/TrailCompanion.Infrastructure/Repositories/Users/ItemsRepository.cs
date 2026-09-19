@@ -41,6 +41,18 @@ public class ItemsRepository : Repository, IItemsRepository
             .OrderBy(i => i.Position)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Items>> GetByRaceIdAsync(
+        Guid appUserId,
+        Guid raceId,
+        CancellationToken cancellationToken = default) =>
+        await Context.Set<Items>()
+            .AsNoTracking()
+            .Where(i => Context.Set<Segments>().Any(s => s.Id == i.SegmentId
+                && s.RaceId == raceId
+                && Context.Set<Races>().Any(r => r.Id == raceId && r.AppUserId == appUserId)))
+            .OrderBy(i => i.Position)
+            .ToListAsync(cancellationToken);
+
     public async Task AddAsync(Items item, CancellationToken cancellationToken = default) =>
         await AddAsync<Items>(item, cancellationToken);
 

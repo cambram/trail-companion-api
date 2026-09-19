@@ -27,7 +27,9 @@ internal sealed class CreateRaceEndpoint : IEndpoint
                     var command = new CreateRaceCommand(appUserId, request);
                     var race = await sender.Send(command, cancellationToken);
 
-                    return TypedResults.Created(ApiEndpoints.Users.CreateRace, race);
+                    var location = ApiEndpoints.Users.GetRace.Replace("{id:guid}", race.Id.ToString());
+
+                    return TypedResults.Created(location, race);
                 })
             .WithName(Name)
             .WithTags(Modules.Users)
