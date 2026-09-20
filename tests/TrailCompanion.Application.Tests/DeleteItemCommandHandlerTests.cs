@@ -18,7 +18,7 @@ public class DeleteItemCommandHandlerTests
     [Fact]
     public async Task Handle_WhenItemExists_DeletesAndSaves()
     {
-        var item = new Items { Id = Guid.NewGuid(), SegmentId = _segmentId, Name = "A" };
+        var item = new Items { Id = Guid.NewGuid(), SegmentId = _segmentId, NutritionItemId = Guid.NewGuid() };
         _items.GetByIdAsync(_appUserId, _raceId, _segmentId, item.Id, Arg.Any<CancellationToken>()).Returns(item);
 
         await CreateHandler().Handle(

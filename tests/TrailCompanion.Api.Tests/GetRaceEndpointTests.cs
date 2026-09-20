@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using TrailCompanion.Api.Endpoints;
 using TrailCompanion.Application.Modules.Users.Dtos;
+using TrailCompanion.Domain.Modules.Users.Entities;
 using TrailCompanion.Infrastructure.IntegrationTests;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -40,14 +41,17 @@ public class GetRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var race = await Post<RaceDto>(client, Route(ApiEndpoints.Users.CreateRace), new CreateRaceRequest("UTMB", 90));
         var first = await Post<SegmentDto>(client, SegmentsRoute(race.Id), new SegmentRequest("Start to Aid 1", 90, 11, "Easy"));
         var second = await Post<SegmentDto>(client, SegmentsRoute(race.Id), new SegmentRequest("Aid 1 to Aid 2", 60, null, null));
-        await Post<ItemDto>(client, ItemsRoute(race.Id, first.Id), new ItemRequest("Gel", 40));
-        await Post<ItemDto>(client, ItemsRoute(race.Id, first.Id), new ItemRequest("Chew", 30));
-        await Post<ItemDto>(client, ItemsRoute(race.Id, second.Id), new ItemRequest("Banana", 25));
+        var gel = await CreateNutrition(client, "Gel", 40);
+        var chew = await CreateNutrition(client, "Chew", 30);
+        var banana = await CreateNutrition(client, "Banana", 25);
+        await Post<ItemDto>(client, ItemsRoute(race.Id, first.Id), new ItemRequest(gel.Id));
+        await Post<ItemDto>(client, ItemsRoute(race.Id, first.Id), new ItemRequest(chew.Id));
+        await Post<ItemDto>(client, ItemsRoute(race.Id, second.Id), new ItemRequest(banana.Id));
 
         var response = await client.GetAsync(GetRoute(race.Id));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var detail = await response.Content.ReadFromJsonAsync<RaceDetailDto>();
+        var detail = await response.Content.ReadFromJsonAsync<RaceDetailDto>(TestJson.Options);
         Assert.Equal("UTMB", detail!.Name);
         Assert.Equal(90, detail.Target);
         Assert.Collection(detail.Segments,
@@ -96,10 +100,16 @@ public class GetRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
 
     private static async Task<T> Post<T>(HttpClient client, string route, object body)
     {
-        var response = await client.PostAsJsonAsync(route, body);
+        var response = await client.PostAsJsonAsync(route, body, TestJson.Options);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<T>())!;
+        return (await response.Content.ReadFromJsonAsync<T>(TestJson.Options))!;
     }
+
+    private static Task<NutritionItemDto> CreateNutrition(HttpClient client, string name, int carbs) =>
+        Post<NutritionItemDto>(
+            client,
+            Route(ApiEndpoints.Users.CreateNutritionItem),
+            new NutritionItemRequest(name, NutritionType.Gel, null, carbs, null, null, null, null, null, null));
 
     private static async Task SignIn(HttpClient client)
     {

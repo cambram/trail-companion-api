@@ -25,11 +25,16 @@ internal sealed class CreateItemCommandHandler : IRequestHandler<CreateItemComma
 {
     private readonly ISegmentsRepository _segmentsRepository;
     private readonly IItemsRepository _itemsRepository;
+    private readonly INutritionItemsRepository _nutritionItemsRepository;
 
-    public CreateItemCommandHandler(ISegmentsRepository segmentsRepository, IItemsRepository itemsRepository)
+    public CreateItemCommandHandler(
+        ISegmentsRepository segmentsRepository,
+        IItemsRepository itemsRepository,
+        INutritionItemsRepository nutritionItemsRepository)
     {
         _segmentsRepository = segmentsRepository;
         _itemsRepository = itemsRepository;
+        _nutritionItemsRepository = nutritionItemsRepository;
     }
 
     public async Task<ItemDto> Handle(CreateItemCommand command, CancellationToken cancellationToken)
@@ -38,7 +43,16 @@ internal sealed class CreateItemCommandHandler : IRequestHandler<CreateItemComma
                 command.AppUserId, command.RaceId, command.SegmentId, cancellationToken)
             ?? throw new NotFoundException(nameof(Segments), command.SegmentId);
 
-        ItemRequestRules.RequireValid(command.Request);
+        if (command.Request.NutritionItemId is not { } nutritionItemId)
+        {
+            throw new ValidationFailedException(
+                "The item request is invalid.",
+                [new ValidationFailure("InvalidNutritionItemId", "A nutrition item must be selected.")]);
+        }
+
+        var nutritionItem = await _nutritionItemsRepository.GetByIdAsync(
+                command.AppUserId, nutritionItemId, cancellationToken)
+            ?? throw new NotFoundException(nameof(NutritionItems), nutritionItemId);
 
         var existing = await _itemsRepository.GetBySegmentIdAsync(
             command.AppUserId, command.RaceId, command.SegmentId, cancellationToken);
@@ -46,14 +60,13 @@ internal sealed class CreateItemCommandHandler : IRequestHandler<CreateItemComma
         var item = new Items
         {
             SegmentId = command.SegmentId,
-            Position = existing.Count == 0 ? 1 : existing.Max(i => i.Position) + 1,
-            Name = command.Request.Name!.Trim(),
-            Carbs = command.Request.Carbs ?? 0
+            NutritionItemId = nutritionItemId,
+            Position = existing.Count == 0 ? 1 : existing.Max(i => i.Position) + 1
         };
 
         await _itemsRepository.AddAsync(item, cancellationToken);
         await _itemsRepository.SaveChangesAsync(cancellationToken);
 
-        return ItemDto.FromEntity(item);
+        return ItemDto.FromEntity(item, nutritionItem);
     }
 }

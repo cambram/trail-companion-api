@@ -58,16 +58,11 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<int>("Carbs")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                    b.Property<Guid>("NutritionItemId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("Position")
                         .HasColumnType("integer");
@@ -80,11 +75,88 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("NutritionItemId");
+
                     b.HasIndex("SegmentId");
 
-                    b.ToTable("Items", null, t =>
+                    b.ToTable("Items", (string)null);
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.NutritionItems", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("Caffeine")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("Calcium")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)");
+
+                    b.Property<int?>("Calories")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Carbs")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("Magnesium")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("Potassium")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)");
+
+                    b.Property<int?>("Size")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("Sodium")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("NutritionItems", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Items_Carbs", "\"Carbs\" >= 0");
+                            t.HasCheckConstraint("CK_NutritionItems_Caffeine", "\"Caffeine\" IS NULL OR \"Caffeine\" >= 0");
+
+                            t.HasCheckConstraint("CK_NutritionItems_Calcium", "\"Calcium\" IS NULL OR \"Calcium\" >= 0");
+
+                            t.HasCheckConstraint("CK_NutritionItems_Calories", "\"Calories\" IS NULL OR \"Calories\" >= 0");
+
+                            t.HasCheckConstraint("CK_NutritionItems_Carbs", "\"Carbs\" IS NULL OR \"Carbs\" >= 0");
+
+                            t.HasCheckConstraint("CK_NutritionItems_Magnesium", "\"Magnesium\" IS NULL OR \"Magnesium\" >= 0");
+
+                            t.HasCheckConstraint("CK_NutritionItems_Potassium", "\"Potassium\" IS NULL OR \"Potassium\" >= 0");
+
+                            t.HasCheckConstraint("CK_NutritionItems_Size", "\"Size\" IS NULL OR \"Size\" >= 0");
+
+                            t.HasCheckConstraint("CK_NutritionItems_Sodium", "\"Sodium\" IS NULL OR \"Sodium\" >= 0");
                         });
                 });
 
@@ -178,9 +250,24 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Items", b =>
                 {
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.NutritionItems", null)
+                        .WithMany()
+                        .HasForeignKey("NutritionItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.Segments", null)
                         .WithMany()
                         .HasForeignKey("SegmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.NutritionItems", b =>
+                {
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

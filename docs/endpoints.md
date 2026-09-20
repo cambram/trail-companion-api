@@ -35,10 +35,20 @@ Every endpoint except register and login needs `Authorization: Bearer <token>`. 
 
 | Method | Route | Description | Request | Response | Endpoint file |
 |---|---|---|---|---|---|
-| POST | `/api/races/{raceId}/segments/{segmentId}/items` | Add a fuel item with carbs to an owned segment. | [ItemRequest](#itemrequest) | 201 [ItemDto](#itemdto) | [CreateItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateItemEndpoint.cs) |
+| POST | `/api/races/{raceId}/segments/{segmentId}/items` | Attach a nutrition library item to an owned segment. | [ItemRequest](#itemrequest) | 201 [ItemDto](#itemdto) | [CreateItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateItemEndpoint.cs) |
 | PUT | `/api/races/{raceId}/segments/{segmentId}/items/order` | Set item order from a complete list of item ids; positions become 1..n. | [ReorderRequest](#reorderrequest) | 204 | [ReorderItemsEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/ReorderItemsEndpoint.cs) |
-| PUT | `/api/races/{raceId}/segments/{segmentId}/items/{id}` | Replace a fuel item's name and carbs on a segment. | [ItemRequest](#itemrequest) | 200 [ItemDto](#itemdto) | [UpdateItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateItemEndpoint.cs) |
 | DELETE | `/api/races/{raceId}/segments/{segmentId}/items/{id}` | Delete one fuel item from a segment by its identifier. | none | 204 | [DeleteItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteItemEndpoint.cs) |
+
+## Nutrition items
+
+`Type` is one of `Gel`, `Liquid`, `Solid` or `Pill`, and it implies the unit of `Size`: grams for Gel and Solid, millilitres for Liquid, milligrams for Pill. Carbs are grams, calories are calories, every other macro is milligrams. Sodium, potassium, magnesium and calcium accept decimals (`numeric(8,2)`); size and the rest are whole numbers. Names are unique per user.
+
+| Method | Route | Description | Request | Response | Endpoint file |
+|---|---|---|---|---|---|
+| GET | `/api/nutrition-items` | List the caller's nutrition library, ordered by name. | none | 200 [NutritionItemDto](#nutritionitemdto)[] | [GetNutritionItemsEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetNutritionItemsEndpoint.cs) |
+| POST | `/api/nutrition-items` | Create a nutrition library item. 409 when the name is already taken. | [NutritionItemRequest](#nutritionitemrequest) | 201 [NutritionItemDto](#nutritionitemdto) | [CreateNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateNutritionItemEndpoint.cs) |
+| PUT | `/api/nutrition-items/{id}` | Replace every field of an owned library item. Changes apply to every race using it. | [NutritionItemRequest](#nutritionitemrequest) | 200 [NutritionItemDto](#nutritionitemdto) | [UpdateNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateNutritionItemEndpoint.cs) |
+| DELETE | `/api/nutrition-items/{id}` | Delete an owned library item. 409 when any segment still uses it. | none | 204 | [DeleteNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteNutritionItemEndpoint.cs) |
 
 ## Schemas
 
@@ -52,7 +62,8 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 | <a id="loginuserrequest"></a>LoginUserRequest | Email and password credentials supplied when requesting an access token. | `email`, `password` | [LoginUserRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/LoginUserRequest.cs) |
 | <a id="createracerequest"></a>CreateRaceRequest | Race name plus optional carbs-per-hour target, which defaults to sixty. | `name`, `target?`, `startTime?` (`HH:mm:ss`; on PUT, omitted clears it) | [CreateRaceRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/CreateRaceRequest.cs) |
 | <a id="segmentrequest"></a>SegmentRequest | Name, duration, optional distance and notes for a race segment. | `name`, `duration`, `distance?`, `notes?` | [SegmentRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/SegmentRequest.cs) |
-| <a id="itemrequest"></a>ItemRequest | Name and carbs value for a single fuel item entry. | `name`, `carbs?` | [ItemRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ItemRequest.cs) |
+| <a id="itemrequest"></a>ItemRequest | Identifier of the nutrition library item to attach to a segment. | `nutritionItemId` | [ItemRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ItemRequest.cs) |
+| <a id="nutritionitemrequest"></a>NutritionItemRequest | Name, type and optional size and macros for a nutrition library item. Every macro is nullable: blank means unknown, not zero. | `name`, `type`, `size?`, `carbs?`, `calories?`, `caffeine?`, `sodium?`, `potassium?`, `magnesium?`, `calcium?` | [NutritionItemRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/NutritionItemRequest.cs) |
 | <a id="reorderrequest"></a>ReorderRequest | Every sibling id exactly once, in the wanted order. | `ids` | [ReorderRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ReorderRequest.cs) |
 
 ### Responses
@@ -64,8 +75,9 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 | <a id="racedto"></a>RaceDto | Race summary with identifier, name, target and creation timestamp only. | `id`, `name`, `target`, `startTime?`, `createdAtUtc` | [RaceDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDto.cs) |
 | <a id="racedetaildto"></a>RaceDetailDto | Race with nested segments, each carrying its own items list. | `id`, `name`, `target`, `startTime?`, `createdAtUtc`, `segments[]` (`id`, `position`, `name`, `duration`, `distance?`, `notes`, `items[]`) | [RaceDetailDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDetailDto.cs) |
 | <a id="segmentdto"></a>SegmentDto | Segment fields including its race identifier, without nested items. | `id`, `raceId`, `position`, `name`, `duration`, `distance?`, `notes` | [SegmentDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/SegmentDto.cs) |
-| <a id="itemdto"></a>ItemDto | Item fields including its owning segment identifier and its position. | `id`, `segmentId`, `position`, `name`, `carbs` | [ItemDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ItemDto.cs) |
+| <a id="itemdto"></a>ItemDto | Segment item row with its position and a flattened copy of the referenced library item's values. | `id`, `segmentId`, `nutritionItemId`, `position`, `name`, `type`, `size?`, `carbs?`, `calories?`, `caffeine?`, `sodium?`, `potassium?`, `magnesium?`, `calcium?` | [ItemDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ItemDto.cs) |
+| <a id="nutritionitemdto"></a>NutritionItemDto | One nutrition library item owned by the caller. | `id`, `name`, `type`, `size?`, `carbs?`, `calories?`, `caffeine?`, `sodium?`, `potassium?`, `magnesium?`, `calcium?` | [NutritionItemDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/NutritionItemDto.cs) |
 
 ## Error responses
 
-Failures return `ProblemDetails` with a `correlationId`: 400 validation, 401 unauthenticated or bad login, 404 missing or not owned, 409 duplicate email, 429 login rate limit.
+Failures return `ProblemDetails` with a `correlationId`: 400 validation, 401 unauthenticated or bad login, 404 missing or not owned, 409 duplicate email, duplicate nutrition item name or a library item still in use, 429 login rate limit.

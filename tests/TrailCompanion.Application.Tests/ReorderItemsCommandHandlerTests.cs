@@ -17,7 +17,7 @@ public class ReorderItemsCommandHandlerTests
     private List<Items> GivenItems(int count)
     {
         var list = Enumerable.Range(1, count)
-            .Select(p => new Items { Id = Guid.NewGuid(), SegmentId = _segmentId, Position = p, Name = $"I{p}" })
+            .Select(p => new Items { Id = Guid.NewGuid(), SegmentId = _segmentId, Position = p })
             .ToList();
         foreach (var i in list)
         {

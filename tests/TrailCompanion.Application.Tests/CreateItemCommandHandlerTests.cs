@@ -11,14 +11,16 @@ public class CreateItemCommandHandlerTests
 {
     private readonly ISegmentsRepository _segments = Substitute.For<ISegmentsRepository>();
     private readonly IItemsRepository _items = Substitute.For<IItemsRepository>();
+    private readonly INutritionItemsRepository _nutrition = Substitute.For<INutritionItemsRepository>();
     private readonly Guid _appUserId = Guid.NewGuid();
     private readonly Guid _raceId = Guid.NewGuid();
     private readonly Guid _segmentId = Guid.NewGuid();
+    private readonly Guid _nutritionItemId = Guid.NewGuid();
 
-    private CreateItemCommandHandler CreateHandler() => new(_segments, _items);
+    private CreateItemCommandHandler CreateHandler() => new(_segments, _items, _nutrition);
 
-    private CreateItemCommand Command(ItemRequest request) =>
-        new(_appUserId, _raceId, _segmentId, request);
+    private CreateItemCommand Command(Guid? nutritionItemId) =>
+        new(_appUserId, _raceId, _segmentId, new ItemRequest(nutritionItemId));
 
     private void GivenOwnedSegment(params Items[] existing)
     {
@@ -27,30 +29,53 @@ public class CreateItemCommandHandlerTests
         _items.GetBySegmentIdAsync(_appUserId, _raceId, _segmentId, Arg.Any<CancellationToken>()).Returns(existing);
     }
 
+    private NutritionItems GivenOwnedNutritionItem()
+    {
+        var nutritionItem = new NutritionItems
+        {
+            Id = _nutritionItemId,
+            AppUserId = _appUserId,
+            Name = "Maurten Gel 160",
+            Type = NutritionType.Gel,
+            Size = 40,
+            Carbs = 40,
+            Sodium = 200
+        };
+        _nutrition.GetByIdAsync(_appUserId, _nutritionItemId, Arg.Any<CancellationToken>()).Returns(nutritionItem);
+        return nutritionItem;
+    }
+
     [Fact]
-    public async Task Handle_OnEmptySegment_CreatesItemAtPositionOne()
+    public async Task Handle_OnEmptySegment_CreatesItemAtPositionOneWithLibraryValues()
     {
         GivenOwnedSegment();
+        GivenOwnedNutritionItem();
 
-        var result = await CreateHandler().Handle(Command(new ItemRequest("  Maurten Gel 160 ", 40)), CancellationToken.None);
+        var result = await CreateHandler().Handle(Command(_nutritionItemId), CancellationToken.None);
 
         Assert.Equal(1, result.Position);
-        Assert.Equal("Maurten Gel 160", result.Name);
-        Assert.Equal(40, result.Carbs);
         Assert.Equal(_segmentId, result.SegmentId);
-        await _items.Received(1).AddAsync(Arg.Is<Items>(i => i!.SegmentId == _segmentId), Arg.Any<CancellationToken>());
+        Assert.Equal(_nutritionItemId, result.NutritionItemId);
+        Assert.Equal("Maurten Gel 160", result.Name);
+        Assert.Equal(NutritionType.Gel, result.Type);
+        Assert.Equal(40, result.Carbs);
+        Assert.Equal(200, result.Sodium);
+        Assert.Null(result.Calories);
+        await _items.Received(1).AddAsync(
+            Arg.Is<Items>(i => i!.SegmentId == _segmentId && i.NutritionItemId == _nutritionItemId),
+            Arg.Any<CancellationToken>());
         await _items.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Handle_WithExistingItems_AppendsAfterHighestPosition()
     {
-        GivenOwnedSegment(new Items { Position = 1, Name = "A" }, new Items { Position = 6, Name = "B" });
+        GivenOwnedSegment(new Items { Position = 1 }, new Items { Position = 6 });
+        GivenOwnedNutritionItem();
 
-        var result = await CreateHandler().Handle(Command(new ItemRequest("C", null)), CancellationToken.None);
+        var result = await CreateHandler().Handle(Command(_nutritionItemId), CancellationToken.None);
 
         Assert.Equal(7, result.Position);
-        Assert.Equal(0, result.Carbs);
     }
 
     [Fact]
@@ -59,31 +84,33 @@ public class CreateItemCommandHandlerTests
         _segments.GetByIdAsync(_appUserId, _raceId, _segmentId, Arg.Any<CancellationToken>()).Returns((Segments?)null);
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            CreateHandler().Handle(Command(new ItemRequest("A", 1)), CancellationToken.None));
-
-        await _items.DidNotReceive().AddAsync(Arg.Any<Items>(), Arg.Any<CancellationToken>());
-    }
-
-    [Theory]
-    [InlineData(null, 10)]
-    [InlineData("   ", 10)]
-    [InlineData("A", -1)]
-    public async Task Handle_WithInvalidInput_ThrowsValidationFailed(string? name, int carbs)
-    {
-        GivenOwnedSegment();
-
-        await Assert.ThrowsAsync<ValidationFailedException>(() =>
-            CreateHandler().Handle(Command(new ItemRequest(name, carbs)), CancellationToken.None));
+            CreateHandler().Handle(Command(_nutritionItemId), CancellationToken.None));
 
         await _items.DidNotReceive().AddAsync(Arg.Any<Items>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Handle_WithTooLongName_ThrowsValidationFailed()
+    public async Task Handle_WhenNutritionItemMissingOrOtherUsers_ThrowsNotFoundAndSavesNothing()
+    {
+        GivenOwnedSegment();
+        _nutrition.GetByIdAsync(_appUserId, _nutritionItemId, Arg.Any<CancellationToken>())
+            .Returns((NutritionItems?)null);
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            CreateHandler().Handle(Command(_nutritionItemId), CancellationToken.None));
+
+        await _items.DidNotReceive().AddAsync(Arg.Any<Items>(), Arg.Any<CancellationToken>());
+        await _items.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WithoutANutritionItemId_ThrowsValidationFailedAndSavesNothing()
     {
         GivenOwnedSegment();
 
         await Assert.ThrowsAsync<ValidationFailedException>(() =>
-            CreateHandler().Handle(Command(new ItemRequest(new string('a', 201), 1)), CancellationToken.None));
+            CreateHandler().Handle(Command(null), CancellationToken.None));
+
+        await _items.DidNotReceive().AddAsync(Arg.Any<Items>(), Arg.Any<CancellationToken>());
     }
 }

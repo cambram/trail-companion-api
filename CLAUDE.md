@@ -7,10 +7,12 @@
 - `AppUser`: the account. JWT `sub` = `AppUser.Id`.
 - `Races`: owned by `AppUserId`. `Name`, `Target` (carbs per hour, default 60).
 - `Segments`: belong to a race. `Position`, `Name`, `Duration`, `Distance?`, `Notes`.
-- `Items`: belong to a segment. `Position`, `Name`, `Carbs`.
-- Only `Races` carries `AppUserId`. Segments and items are owned through the chain: handlers verify race and segment via repositories that take `appUserId`.
+- `Items`: belong to a segment, reference a `NutritionItems`, carry `Position`. They hold no nutrition values of their own.
+- `NutritionItems`: the user's nutrition library, owned by `AppUserId`. `Name` (unique per user), `Type` (`Gel`, `Liquid`, `Solid`, `Pill`, stored as text), nullable `Size` and macros (`Carbs`, `Calories`, `Caffeine`, `Sodium`, `Potassium`, `Magnesium`, `Calcium`). `Sodium`, `Potassium`, `Magnesium` and `Calcium` are `decimal?` at `HasPrecision(8, 2)`; the rest are `int?`. `Size`'s unit is implied by `Type`. Null means unknown, not zero.
+- `Races` and `NutritionItems` carry `AppUserId`. Segments and items are owned through the chain: handlers verify race and segment via repositories that take `appUserId`.
 - Entity classes are plural (`Races`, `Segments`, `Items`). Race features currently live in the `Users` module folders across all layers.
-- Routes: see `Endpoints/ApiEndpoints.cs` and the table in `docs/auth.md`. Nested: `/api/races/{raceId}/segments/{segmentId}/items`.
+- A library item in use cannot be deleted: `DeleteNutritionItemCommand` counts usages and throws `ConflictException`, and the `Items` foreign key is `Restrict`.
+- Routes: see `Endpoints/ApiEndpoints.cs` and the table in `docs/auth.md`. Nested: `/api/races/{raceId}/segments/{segmentId}/items`. Library: `/api/nutrition-items`.
 - `docs/race-reads-option-a-single-endpoint.md` documents the nested `GET /api/races/{id}` DTO design.
 
 # Build & Development Commands
@@ -60,7 +62,7 @@ Api -> Application
 **Requests and handlers**
 - Request classes: `sealed`, values via constructor, get-only properties. Never positional records.
 - Handlers: `internal sealed <RequestName>Handler`, same file as the request, in `Commands/` or `Queries/`.
-- Shared request validation goes in an `internal static <Thing>RequestRules` class (see `ItemRequestRules`) that throws `ValidationFailedException`.
+- Shared request validation goes in an `internal static <Thing>RequestRules` class (see `NutritionItemRequestRules`) that throws `ValidationFailedException`.
 - DTOs are records in `Modules/<Module>/Dtos/`, with a static `FromEntity` where needed.
 - Handlers throw domain exceptions; `ExceptionHandlingMiddleware` maps them: `ValidationFailedException`/`DomainException` 400, `UnauthorizedException` 401, `NotFoundException` 404, `ConflictException` 409, else 500. All `ProblemDetails` with `correlationId`.
 

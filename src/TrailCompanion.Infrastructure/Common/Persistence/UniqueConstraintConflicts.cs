@@ -9,6 +9,8 @@ internal static class UniqueConstraintConflicts
         {
             ["IX_AppUsers_Email"] =
                 ("DuplicateEmail", "An account with this email already exists."),
+            ["IX_NutritionItems_AppUserId_Name"] =
+                ("DuplicateNutritionItem", "You already have a nutrition item with this name."),
         }.ToFrozenDictionary();
 
     public static bool TryTranslate(string? constraintName, out (string Code, string Message) conflict)

@@ -6,18 +6,15 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace TrailCompanion.Api.Endpoints.Users;
 
-internal sealed class UpdateItemEndpoint : IEndpoint
+internal sealed class CreateNutritionItemEndpoint : IEndpoint
 {
-    public const string Name = nameof(UpdateItemEndpoint);
+    public const string Name = nameof(CreateNutritionItemEndpoint);
 
     public static void MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapPut(ApiEndpoints.Users.UpdateItem,
-                async Task<Results<Ok<ItemDto>, UnauthorizedHttpResult>> (
-                    Guid raceId,
-                    Guid segmentId,
-                    Guid id,
-                    ItemRequest request,
+        app.MapPost(ApiEndpoints.Users.CreateNutritionItem,
+                async Task<Results<Created<NutritionItemDto>, UnauthorizedHttpResult>> (
+                    NutritionItemRequest request,
                     [FromServices] ISender sender,
                     [FromServices] ICurrentUser currentUser,
                     CancellationToken cancellationToken) =>
@@ -27,18 +24,19 @@ internal sealed class UpdateItemEndpoint : IEndpoint
                         return TypedResults.Unauthorized();
                     }
 
-                    var command = new UpdateItemCommand(appUserId, raceId, segmentId, id, request);
-                    var item = await sender.Send(command, cancellationToken);
+                    var item = await sender.Send(new CreateNutritionItemCommand(appUserId, request), cancellationToken);
+                    var location = ApiEndpoints.Users.UpdateNutritionItem
+                        .Replace("{id:guid}", item.Id.ToString());
 
-                    return TypedResults.Ok(item);
+                    return TypedResults.Created(location, item);
                 })
             .WithName(Name)
             .WithTags(Modules.Users)
-            .WithSummary("Replaces an item's editable fields on a segment of a race owned by the authenticated caller.")
-            .Produces<ItemDto>()
+            .WithSummary("Creates a nutrition library item for the authenticated caller.")
+            .Produces<NutritionItemDto>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .RequireAuthorization();
     }
 }

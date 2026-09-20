@@ -27,8 +27,10 @@ Base path is `api`. Route constants live in `src/TrailCompanion.Api/Endpoints/Ap
 | GET, DELETE | `/api/races/{id}` | Bearer required | Read / delete a race |
 | POST | `/api/races/{raceId}/segments` | Bearer required | Create segment |
 | PUT, DELETE | `/api/races/{raceId}/segments/{id}` | Bearer required | Update / delete segment |
-| POST | `/api/races/{raceId}/segments/{segmentId}/items` | Bearer required | Create item |
-| PUT, DELETE | `/api/races/{raceId}/segments/{segmentId}/items/{id}` | Bearer required | Update / delete item |
+| POST | `/api/races/{raceId}/segments/{segmentId}/items` | Bearer required | Attach a library item to a segment |
+| DELETE | `/api/races/{raceId}/segments/{segmentId}/items/{id}` | Bearer required | Delete item |
+| GET, POST | `/api/nutrition-items` | Bearer required | List / create nutrition library item |
+| PUT, DELETE | `/api/nutrition-items/{id}` | Bearer required | Update / delete nutrition library item |
 
 All `{id}` style route params are constrained to GUIDs.
 
@@ -158,7 +160,7 @@ Per-route rules are set on each endpoint class individually: `RequireAuthorizati
 
 There are no roles. Authorization is ownership only:
 
-- Owned entities (races, segments, items) carry `AppUserId`.
+- Owned entities (races, nutrition items) carry `AppUserId`; segments and items are owned through the race chain.
 - Handlers take `appUserId` and filter on it. Ownership is enforced in the handler, not the endpoint.
 - Another user's record returns `404`, not `403`. A 403 would confirm the record exists.
 

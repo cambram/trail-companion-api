@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using TrailCompanion.Api.Endpoints;
 using TrailCompanion.Application.Modules.Users.Dtos;
+using TrailCompanion.Domain.Modules.Users.Entities;
 using TrailCompanion.Infrastructure.IntegrationTests;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -28,49 +29,85 @@ public class ItemEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var raceId = Guid.NewGuid();
         var segmentId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
-        var body = new ItemRequest("A", 1);
 
-        var create = await client.PostAsJsonAsync(CreateRoute(raceId, segmentId), body);
-        var update = await client.PutAsJsonAsync(ItemRoute(raceId, segmentId, itemId), body);
+        var create = await client.PostAsJsonAsync(CreateRoute(raceId, segmentId), new ItemRequest(Guid.NewGuid()));
         var delete = await client.DeleteAsync(ItemRoute(raceId, segmentId, itemId));
 
         Assert.Equal(HttpStatusCode.Unauthorized, create.StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, update.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, delete.StatusCode);
     }
 
     [Fact]
-    public async Task CreateItem_Returns201AndAppendsPositions()
+    public async Task CreateItem_Returns201WithLibraryValuesAndAppendsPositions()
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
         await SignIn(client);
         var (race, segment) = await CreateRaceWithSegment(client);
+        var gel = await CreateNutrition(client, "Maurten Gel 160");
+        var flask = await CreateNutrition(client, "Tailwind flask", NutritionType.Liquid, 500, 50);
 
-        var first = await client.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), new ItemRequest("Maurten Gel 160", 40));
-        var second = await client.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), new ItemRequest("Banana", null));
+        var first = await client.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), new ItemRequest(gel.Id));
+        var second = await client.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), new ItemRequest(flask.Id));
 
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
-        var firstDto = await first.Content.ReadFromJsonAsync<ItemDto>();
-        var secondDto = await second.Content.ReadFromJsonAsync<ItemDto>();
+        var firstDto = await first.Content.ReadFromJsonAsync<ItemDto>(TestJson.Options);
+        var secondDto = await second.Content.ReadFromJsonAsync<ItemDto>(TestJson.Options);
         Assert.Equal(1, firstDto!.Position);
+        Assert.Equal("Maurten Gel 160", firstDto.Name);
         Assert.Equal(40, firstDto.Carbs);
+        Assert.Equal(gel.Id, firstDto.NutritionItemId);
         Assert.Equal(segment.Id, firstDto.SegmentId);
         Assert.Equal(2, secondDto!.Position);
-        Assert.Equal(0, secondDto.Carbs);
+        Assert.Equal(NutritionType.Liquid, secondDto.Type);
+        Assert.Equal(500, secondDto.Size);
     }
 
     [Fact]
-    public async Task CreateItem_WithInvalidBody_Returns400()
+    public async Task CreateItem_TwiceWithTheSameLibraryItem_CreatesTwoRows()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        await SignIn(client);
+        var (race, segment) = await CreateRaceWithSegment(client);
+        var gel = await CreateNutrition(client, "Maurten 100");
+
+        var first = await client.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), new ItemRequest(gel.Id));
+        var second = await client.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), new ItemRequest(gel.Id));
+
+        var firstDto = await first.Content.ReadFromJsonAsync<ItemDto>(TestJson.Options);
+        var secondDto = await second.Content.ReadFromJsonAsync<ItemDto>(TestJson.Options);
+        Assert.NotEqual(firstDto!.Id, secondDto!.Id);
+        Assert.Equal(2, secondDto.Position);
+    }
+
+    [Fact]
+    public async Task CreateItem_WithoutANutritionItemId_Returns400()
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
         await SignIn(client);
         var (race, segment) = await CreateRaceWithSegment(client);
 
-        var response = await client.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), new ItemRequest("", 10));
+        var response = await client.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), new ItemRequest(null));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateItem_WithAnotherUsersNutritionItem_Returns404()
+    {
+        using var factory = CreateFactory();
+        using var owner = factory.CreateClient();
+        using var other = factory.CreateClient();
+        await SignIn(owner);
+        await SignIn(other);
+        var (race, segment) = await CreateRaceWithSegment(owner);
+        var foreignNutrition = await CreateNutrition(other, "Theirs");
+
+        var response = await owner.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), new ItemRequest(foreignNutrition.Id));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -83,51 +120,13 @@ public class ItemEndpointTests : IClassFixture<PostgresDatabaseFixture>
         await SignIn(other);
         var (race, segment) = await CreateRaceWithSegment(owner);
         var otherRace = await CreateRace(owner);
-        var body = new ItemRequest("A", 1);
+        var nutrition = await CreateNutrition(owner, "Mine");
 
-        var foreign = await other.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), body);
-        var wrongRace = await owner.PostAsJsonAsync(CreateRoute(otherRace.Id, segment.Id), body);
+        var foreign = await other.PostAsJsonAsync(CreateRoute(race.Id, segment.Id), new ItemRequest(nutrition.Id));
+        var wrongRace = await owner.PostAsJsonAsync(CreateRoute(otherRace.Id, segment.Id), new ItemRequest(nutrition.Id));
 
         Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, wrongRace.StatusCode);
-    }
-
-    [Fact]
-    public async Task UpdateItem_ReplacesFieldsAndKeepsPosition()
-    {
-        using var factory = CreateFactory();
-        using var client = factory.CreateClient();
-        await SignIn(client);
-        var (race, segment) = await CreateRaceWithSegment(client);
-        var item = await CreateItem(client, race.Id, segment.Id, "Old");
-
-        var response = await client.PutAsJsonAsync(ItemRoute(race.Id, segment.Id, item.Id), new ItemRequest("New", 55));
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var updated = await response.Content.ReadFromJsonAsync<ItemDto>();
-        Assert.Equal("New", updated!.Name);
-        Assert.Equal(55, updated.Carbs);
-        Assert.Equal(item.Position, updated.Position);
-    }
-
-    [Fact]
-    public async Task UpdateItem_AnotherUsersItemOrWrongSegment_Returns404()
-    {
-        using var factory = CreateFactory();
-        using var owner = factory.CreateClient();
-        using var other = factory.CreateClient();
-        await SignIn(owner);
-        await SignIn(other);
-        var (race, segment) = await CreateRaceWithSegment(owner);
-        var otherSegment = await CreateSegment(owner, race.Id);
-        var item = await CreateItem(owner, race.Id, segment.Id, "Mine");
-        var body = new ItemRequest("Hacked", 1);
-
-        var foreign = await other.PutAsJsonAsync(ItemRoute(race.Id, segment.Id, item.Id), body);
-        var wrongSegment = await owner.PutAsJsonAsync(ItemRoute(race.Id, otherSegment.Id, item.Id), body);
-
-        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, wrongSegment.StatusCode);
     }
 
     [Fact]
@@ -202,10 +201,25 @@ public class ItemEndpointTests : IClassFixture<PostgresDatabaseFixture>
         return (race, await CreateSegment(client, race.Id));
     }
 
+    private static async Task<NutritionItemDto> CreateNutrition(
+        HttpClient client,
+        string name,
+        NutritionType type = NutritionType.Gel,
+        int? size = null,
+        int? carbs = 40)
+    {
+        var response = await client.PostAsJsonAsync(
+            Route(ApiEndpoints.Users.CreateNutritionItem),
+            new NutritionItemRequest(name, type, size, carbs, null, null, null, null, null, null),
+            TestJson.Options);
+        return (await response.Content.ReadFromJsonAsync<NutritionItemDto>(TestJson.Options))!;
+    }
+
     private static async Task<ItemDto> CreateItem(HttpClient client, Guid raceId, Guid segmentId, string name)
     {
-        var response = await client.PostAsJsonAsync(CreateRoute(raceId, segmentId), new ItemRequest(name, 30));
-        return (await response.Content.ReadFromJsonAsync<ItemDto>())!;
+        var nutrition = await CreateNutrition(client, name);
+        var response = await client.PostAsJsonAsync(CreateRoute(raceId, segmentId), new ItemRequest(nutrition.Id));
+        return (await response.Content.ReadFromJsonAsync<ItemDto>(TestJson.Options))!;
     }
 
     private static async Task SignIn(HttpClient client)
@@ -228,7 +242,7 @@ public class ItemEndpointTests : IClassFixture<PostgresDatabaseFixture>
             .Replace("{segmentId:guid}", segmentId.ToString()));
 
     private static string ItemRoute(Guid raceId, Guid segmentId, Guid id) =>
-        Route(ApiEndpoints.Users.UpdateItem
+        Route(ApiEndpoints.Users.DeleteItem
             .Replace("{raceId:guid}", raceId.ToString())
             .Replace("{segmentId:guid}", segmentId.ToString())
             .Replace("{id:guid}", id.ToString()));

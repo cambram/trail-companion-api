@@ -28,7 +28,7 @@ internal sealed class CreateItemEndpoint : IEndpoint
 
                     var command = new CreateItemCommand(appUserId, raceId, segmentId, request);
                     var item = await sender.Send(command, cancellationToken);
-                    var location = ApiEndpoints.Users.UpdateItem
+                    var location = ApiEndpoints.Users.DeleteItem
                         .Replace("{raceId:guid}", raceId.ToString())
                         .Replace("{segmentId:guid}", segmentId.ToString())
                         .Replace("{id:guid}", item.Id.ToString());
@@ -37,7 +37,7 @@ internal sealed class CreateItemEndpoint : IEndpoint
                 })
             .WithName(Name)
             .WithTags(Modules.Users)
-            .WithSummary("Appends an item to a segment of a race owned by the authenticated caller.")
+            .WithSummary("Attaches a nutrition library item to a segment of a race owned by the authenticated caller.")
             .Produces<ItemDto>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)

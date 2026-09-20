@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using TrailCompanion.Api.Endpoints;
 using TrailCompanion.Application.Modules.Users.Dtos;
+using TrailCompanion.Domain.Modules.Users.Entities;
 using TrailCompanion.Infrastructure.IntegrationTests;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -66,7 +67,7 @@ public class RaceEditingEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var race = await CreateRace(client);
 
         await client.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("UTMB", null, new TimeOnly(6, 30)));
-        var detail = await client.GetFromJsonAsync<RaceDetailDto>($"/api/races/{race.Id}");
+        var detail = await client.GetFromJsonAsync<RaceDetailDto>($"/api/races/{race.Id}", TestJson.Options);
 
         Assert.Equal(new TimeOnly(6, 30), detail!.StartTime);
     }
@@ -110,7 +111,7 @@ public class RaceEditingEndpointTests : IClassFixture<PostgresDatabaseFixture>
         Assert.Equal(HttpStatusCode.NoContent, items.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, incomplete.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, foreignSegments.StatusCode);
-        var detail = await owner.GetFromJsonAsync<RaceDetailDto>($"/api/races/{race.Id}");
+        var detail = await owner.GetFromJsonAsync<RaceDetailDto>($"/api/races/{race.Id}", TestJson.Options);
         Assert.Equal(["B", "A"], detail!.Segments.Select(s => s.Name));
         Assert.Equal(["Banana", "Gel"], detail.Segments[1].Items.Select(i => i.Name));
     }
@@ -129,9 +130,14 @@ public class RaceEditingEndpointTests : IClassFixture<PostgresDatabaseFixture>
 
     private static async Task<ItemDto> CreateItem(HttpClient client, Guid raceId, Guid segmentId, string name)
     {
+        var nutrition = await client.PostAsJsonAsync(
+            "/api/nutrition-items",
+            new NutritionItemRequest(name, NutritionType.Gel, null, 25, null, null, null, null, null, null),
+            TestJson.Options);
+        var created = (await nutrition.Content.ReadFromJsonAsync<NutritionItemDto>(TestJson.Options))!;
         var response = await client.PostAsJsonAsync(
-            $"/api/races/{raceId}/segments/{segmentId}/items", new ItemRequest(name, 25));
-        return (await response.Content.ReadFromJsonAsync<ItemDto>())!;
+            $"/api/races/{raceId}/segments/{segmentId}/items", new ItemRequest(created.Id));
+        return (await response.Content.ReadFromJsonAsync<ItemDto>(TestJson.Options))!;
     }
 
     private static async Task SignIn(HttpClient client)
