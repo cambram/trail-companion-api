@@ -6,11 +6,13 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
-      # Neon: copy the ".NET" connection string (key=value form, not postgresql://)
-      - key: ConnectionStrings__DefaultConnection
+      # Neon pooled connection URL. Falls back to DATABASE_URL when unset.
+      - key: DATABASE_URL_POOLED
         sync: false
-      - key: Jwt__Key
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_KEY
         generateValue: true
-      # Static site URL, e.g. https://trail-companion-web.onrender.com
-      - key: Cors__AllowedOrigins__0
+      # Comma-separated. Static site URL, e.g. https://trail-companion-web.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
         sync: false
