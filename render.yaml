@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: trail-companion-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      # Neon: copy the ".NET" connection string (key=value form, not postgresql://)
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Jwt__Key
+        generateValue: true
+      # Static site URL, e.g. https://trail-companion-web.onrender.com
+      - key: Cors__AllowedOrigins__0
+        sync: false
