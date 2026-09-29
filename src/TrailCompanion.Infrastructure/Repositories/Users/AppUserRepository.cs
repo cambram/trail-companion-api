@@ -26,4 +26,19 @@ public class AppUserRepository : Repository, IAppUserRepository
 
     public async Task AddAsync(AppUser appUser, CancellationToken cancellationToken = default) =>
         await AddAsync<AppUser>(appUser, cancellationToken);
+
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await Context.Database.BeginTransactionAsync(cancellationToken);
+
+        await Context.Set<Races>()
+            .Where(r => r.AppUserId == id)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await Context.AppUsers
+            .Where(u => u.Id == id)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+    }
 }

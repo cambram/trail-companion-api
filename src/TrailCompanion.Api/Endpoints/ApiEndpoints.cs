@@ -6,10 +6,15 @@ internal static class ApiEndpoints
 
     internal static class Users
     {
-        private const string UserBase = $"{ApiBase}/users";
+        public const string UserBase = $"{ApiBase}/users";
         public const string RegisterUser = $"{UserBase}/register";
         public const string LoginUser = $"{UserBase}/login";
         public const string GetMyUser = $"{UserBase}/me";
+        public const string UpdateMyUser = $"{UserBase}/me";
+        public const string DeleteMyUser = $"{UserBase}/me";
+        public const string ChangePassword = $"{UserBase}/password";
+        public const string RefreshToken = $"{UserBase}/refresh";
+        public const string Logout = $"{UserBase}/logout";
         private const string RaceBase = $"{ApiBase}/races";
         public const string CreateRace = RaceBase;
         public const string GetRaces = RaceBase;

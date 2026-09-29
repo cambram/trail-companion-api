@@ -86,10 +86,12 @@ Api -> Application
 - Unique index violations become `ConflictException` via `Repository.SaveChangesAsync` and `UniqueConstraintConflicts`. Add new unique index names there.
 
 **Auth**
-- PBKDF2-HMAC-SHA256, 600,000 iterations, stored `iterations.salt.hash`. HS256 JWT, 15 minute expiry, no refresh tokens, no ASP.NET Core Identity.
+- PBKDF2-HMAC-SHA256, 600,000 iterations, stored `iterations.salt.hash`. HS256 JWT, 15 minute expiry, no ASP.NET Core Identity.
+- Refresh tokens: opaque, SHA-256 hashed in `RefreshTokens`, rotated on every use with reuse detection, delivered only in the `HttpOnly` `refresh_token` cookie. Endpoints read and write the cookie via `RefreshTokenCookie`; commands see plain strings, never `HttpContext`.
+- Password rules live in `PasswordRules`, shared by register and change password.
 - Login returns the same 401 for unknown email and wrong password and always hashes (`IPasswordHasher.Verify(password, null)`).
 - Emails go through `UserEmail.Normalize` (trim, lowercase) before storage and lookup.
-- Login route: fixed-window rate limit, 5 per minute per IP (`RateLimitingConfiguration`).
+- Rate limits (`RateLimitingConfiguration`, fixed window per IP): login 5/min, refresh 30/min, change password and delete account 5/min.
 - Never put secrets or personal data in the JWT. HTTPS only outside local dev.
 
 **Observability**

@@ -4,7 +4,7 @@ using MediatR;
 
 namespace TrailCompanion.Application.Modules.Users.Commands;
 
-public sealed class LoginUserCommand : IRequest<AccessTokenDto>
+public sealed class LoginUserCommand : IRequest<AuthTokens>
 {
     public LoginUserCommand(LoginUserRequest request)
     {
@@ -14,23 +14,29 @@ public sealed class LoginUserCommand : IRequest<AccessTokenDto>
     public LoginUserRequest Request { get; }
 }
 
-internal sealed class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, AccessTokenDto>
+internal sealed class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, AuthTokens>
 {
     private readonly IAppUserRepository _appUserRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IAccessTokenIssuer _accessTokenIssuer;
+    private readonly IRefreshTokenIssuer _refreshTokenIssuer;
+    private readonly IRefreshTokensRepository _refreshTokensRepository;
 
     public LoginUserCommandHandler(
         IAppUserRepository appUserRepository,
         IPasswordHasher passwordHasher,
-        IAccessTokenIssuer accessTokenIssuer)
+        IAccessTokenIssuer accessTokenIssuer,
+        IRefreshTokenIssuer refreshTokenIssuer,
+        IRefreshTokensRepository refreshTokensRepository)
     {
         _appUserRepository = appUserRepository;
         _passwordHasher = passwordHasher;
         _accessTokenIssuer = accessTokenIssuer;
+        _refreshTokenIssuer = refreshTokenIssuer;
+        _refreshTokensRepository = refreshTokensRepository;
     }
 
-    public async Task<AccessTokenDto> Handle(LoginUserCommand command, CancellationToken cancellationToken)
+    public async Task<AuthTokens> Handle(LoginUserCommand command, CancellationToken cancellationToken)
     {
         var email = UserEmail.Normalize(command.Request.Email);
         var appUser = await _appUserRepository.GetByEmailAsync(email, cancellationToken);
@@ -42,6 +48,12 @@ internal sealed class LoginUserCommandHandler : IRequestHandler<LoginUserCommand
             throw new UnauthorizedException("Invalid email or password.");
         }
 
-        return AccessTokenDto.FromAccessToken(_accessTokenIssuer.Issue(appUser.Id));
+        return await AuthTokenSession.StartAsync(
+            appUser.Id,
+            null,
+            _accessTokenIssuer,
+            _refreshTokenIssuer,
+            _refreshTokensRepository,
+            cancellationToken);
     }
 }

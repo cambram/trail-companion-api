@@ -22,5 +22,11 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
         builder.Property(u => u.PasswordHash)
             .IsRequired()
             .HasMaxLength(256);
+
+        builder.Property(u => u.FirstName)
+            .HasMaxLength(100);
+
+        builder.Property(u => u.LastName)
+            .HasMaxLength(100);
     }
 }

@@ -7,8 +7,6 @@ namespace TrailCompanion.Application.Modules.Users.Commands;
 
 public sealed class RegisterUserCommand : IRequest<AppUserDto>
 {
-    public const int MinimumPasswordLength = 8;
-
     public RegisterUserCommand(RegisterUserRequest request)
     {
         Request = request;
@@ -56,12 +54,7 @@ internal sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserC
             failures.Add(new ValidationFailure("InvalidEmail", "A valid email address is required."));
         }
 
-        if (password.Length < RegisterUserCommand.MinimumPasswordLength)
-        {
-            failures.Add(new ValidationFailure(
-                "PasswordTooShort",
-                $"Password must be at least {RegisterUserCommand.MinimumPasswordLength} characters."));
-        }
+        failures.AddRange(PasswordRules.Check(password));
 
         if (failures.Count > 0)
         {

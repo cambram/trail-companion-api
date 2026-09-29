@@ -2,7 +2,7 @@
 
 Every route, its request and response schema, and where the code lives. Base path is `api`. Route constants are in [ApiEndpoints.cs](../src/TrailCompanion.Api/Endpoints/ApiEndpoints.cs). Auth details are in [auth.md](./auth.md).
 
-Every endpoint except register and login needs `Authorization: Bearer <token>`. Race, segment and item routes only ever see the caller's own data; anything else returns 404.
+Every endpoint except register, login, refresh and logout needs `Authorization: Bearer <token>`. Race, segment and item routes only ever see the caller's own data; anything else returns 404.
 
 ## Users
 
@@ -10,7 +10,12 @@ Every endpoint except register and login needs `Authorization: Bearer <token>`. 
 |---|---|---|---|---|---|
 | POST | `/api/users/register` | Create a new account from email and password, returning user. | [RegisterUserRequest](#registeruserrequest) | 201 [AppUserDto](#appuserdto) | [RegisterUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RegisterUserEndpoint.cs) |
 | POST | `/api/users/login` | Exchange email and password for a short-lived JWT access token. | [LoginUserRequest](#loginuserrequest) | 200 [AccessTokenDto](#accesstokendto) | [LoginUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/LoginUserEndpoint.cs) |
+| POST | `/api/users/refresh` | Rotate the `refresh_token` cookie and return a new access token. | cookie | 200 [AccessTokenDto](#accesstokendto) | [RefreshTokenEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RefreshTokenEndpoint.cs) |
+| POST | `/api/users/logout` | Revoke the refresh cookie and clear it. No bearer needed. | cookie | 204 | [LogoutEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/LogoutEndpoint.cs) |
 | GET | `/api/users/me` | Return the authenticated caller's own account details and creation date. | none | 200 [AppUserDto](#appuserdto) | [GetMyUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetMyUserEndpoint.cs) |
+| PUT | `/api/users/me` | Set or clear first and last name. Email cannot change. | [UpdateProfileRequest](#updateprofilerequest) | 200 [AppUserDto](#appuserdto) | [UpdateMyUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateMyUserEndpoint.cs) |
+| DELETE | `/api/users/me` | Permanently hard-delete the account and everything it owns. 401 on wrong password. | [DeleteAccountRequest](#deleteaccountrequest) | 204 | [DeleteMyUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteMyUserEndpoint.cs) |
+| POST | `/api/users/password` | Change password; revokes the caller's other refresh tokens. 401 on wrong current password. | [ChangePasswordRequest](#changepasswordrequest) | 204 | [ChangePasswordEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/ChangePasswordEndpoint.cs) |
 
 ## Races
 
@@ -60,6 +65,9 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 |---|---|---|---|
 | <a id="registeruserrequest"></a>RegisterUserRequest | Email and password supplied when creating a new user account. | `email`, `password` | [RegisterUserRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RegisterUserRequest.cs) |
 | <a id="loginuserrequest"></a>LoginUserRequest | Email and password credentials supplied when requesting an access token. | `email`, `password` | [LoginUserRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/LoginUserRequest.cs) |
+| <a id="updateprofilerequest"></a>UpdateProfileRequest | Names to set; blank or null clears. | `firstName?`, `lastName?` | [UpdateProfileRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/UpdateProfileRequest.cs) |
+| <a id="changepasswordrequest"></a>ChangePasswordRequest | Current password plus the new one. | `currentPassword`, `newPassword` | [ChangePasswordRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ChangePasswordRequest.cs) |
+| <a id="deleteaccountrequest"></a>DeleteAccountRequest | Current password confirming the deletion. | `password` | [DeleteAccountRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/DeleteAccountRequest.cs) |
 | <a id="createracerequest"></a>CreateRaceRequest | Race name plus optional carbs-per-hour target, which defaults to sixty. | `name`, `target?`, `startTime?` (`HH:mm:ss`), `raceDate?` (`YYYY-MM-DD`); on PUT, omitting `startTime` or `raceDate` clears it | [CreateRaceRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/CreateRaceRequest.cs) |
 | <a id="segmentrequest"></a>SegmentRequest | Name, duration, optional distance and notes for a race segment. | `name`, `duration`, `distance?`, `notes?` | [SegmentRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/SegmentRequest.cs) |
 | <a id="itemrequest"></a>ItemRequest | Identifier of the nutrition library item to attach to a segment. | `nutritionItemId` | [ItemRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ItemRequest.cs) |
@@ -70,7 +78,7 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 
 | Schema | Description | Fields | File |
 |---|---|---|---|
-| <a id="appuserdto"></a>AppUserDto | User identifier, email and creation timestamp returned to the client. | `id`, `email`, `createdAtUtc` | [AppUserDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AppUserDto.cs) |
+| <a id="appuserdto"></a>AppUserDto | User identifier, email, optional names and creation timestamp returned to the client. | `id`, `email`, `firstName?`, `lastName?`, `createdAtUtc` | [AppUserDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AppUserDto.cs) |
 | <a id="accesstokendto"></a>AccessTokenDto | Signed JWT string plus its UTC expiry time for clients. | `accessToken`, `expiresAtUtc` | [AccessTokenDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AccessTokenDto.cs) |
 | <a id="racedto"></a>RaceDto | Race summary with identifier, name, target and creation timestamp only. | `id`, `name`, `target`, `startTime?`, `createdAtUtc`, `raceDate?` | [RaceDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDto.cs) |
 | <a id="racedetaildto"></a>RaceDetailDto | Race with nested segments, each carrying its own items list. | `id`, `name`, `target`, `startTime?`, `createdAtUtc`, `raceDate?`, `segments[]` (`id`, `position`, `name`, `duration`, `distance?`, `notes`, `items[]`) | [RaceDetailDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDetailDto.cs) |

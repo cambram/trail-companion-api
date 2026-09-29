@@ -13,8 +13,10 @@ public class LoginUserCommandHandlerTests
     private readonly IAppUserRepository _repository = Substitute.For<IAppUserRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly IAccessTokenIssuer _accessTokenIssuer = Substitute.For<IAccessTokenIssuer>();
+    private readonly IRefreshTokenIssuer _refreshTokenIssuer = Substitute.For<IRefreshTokenIssuer>();
+    private readonly IRefreshTokensRepository _refreshTokensRepository = Substitute.For<IRefreshTokensRepository>();
 
-    private LoginUserCommandHandler CreateHandler() => new(_repository, _passwordHasher, _accessTokenIssuer);
+    private LoginUserCommandHandler CreateHandler() => new(_repository, _passwordHasher, _accessTokenIssuer, _refreshTokenIssuer, _refreshTokensRepository);
 
     [Fact]
     public async Task Handle_WithCorrectPassword_IssuesATokenForThatUser()
@@ -25,13 +27,18 @@ public class LoginUserCommandHandlerTests
         _repository.GetByEmailAsync("user@example.com", Arg.Any<CancellationToken>()).Returns(appUser);
         _passwordHasher.Verify("password", "stored").Returns(true);
         _accessTokenIssuer.Issue(appUser.Id).Returns(new AccessToken("token", expiresAtUtc));
+        _refreshTokenIssuer.Issue().Returns(new IssuedRefreshToken("refresh", "hash", expiresAtUtc.AddDays(30)));
 
         var result = await CreateHandler().Handle(
             new LoginUserCommand(new LoginUserRequest(" USER@example.com", "password")),
             CancellationToken.None);
 
-        Assert.Equal("token", result.AccessToken);
-        Assert.Equal(expiresAtUtc, result.ExpiresAtUtc);
+        Assert.Equal("token", result.AccessToken.AccessToken);
+        Assert.Equal("refresh", result.RefreshToken);
+        await _refreshTokensRepository.Received(1).AddAsync(
+            Arg.Is<RefreshTokens>(t => t != null && t.AppUserId == appUser.Id && t.TokenHash == "hash"),
+            Arg.Any<CancellationToken>());
+        Assert.Equal(expiresAtUtc, result.AccessToken.ExpiresAtUtc);
     }
 
     [Fact]

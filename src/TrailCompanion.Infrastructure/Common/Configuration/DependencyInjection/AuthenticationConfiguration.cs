@@ -18,6 +18,7 @@ internal static class AuthenticationConfiguration
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();
+        services.AddSingleton<IRefreshTokenIssuer, RefreshTokenIssuer>();
 
         return services;
     }

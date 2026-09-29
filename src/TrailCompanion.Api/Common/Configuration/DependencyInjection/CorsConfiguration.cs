@@ -16,7 +16,8 @@ internal static class CorsConfiguration
                 .WithOrigins(configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
                 .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
                 .WithHeaders("Authorization", "Content-Type", CorrelationIdMiddleware.HeaderName)
-                .WithExposedHeaders(CorrelationIdMiddleware.HeaderName));
+                .WithExposedHeaders(CorrelationIdMiddleware.HeaderName)
+                .AllowCredentials());
         });
 
         return services;

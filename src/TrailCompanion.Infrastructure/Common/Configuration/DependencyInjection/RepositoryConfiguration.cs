@@ -13,6 +13,7 @@ internal static class RepositoryConfiguration
         services.AddScoped<ISegmentsRepository, SegmentsRepository>();
         services.AddScoped<IItemsRepository, ItemsRepository>();
         services.AddScoped<INutritionItemsRepository, NutritionItemsRepository>();
+        services.AddScoped<IRefreshTokensRepository, RefreshTokensRepository>();
 
         return services;
     }

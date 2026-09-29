@@ -36,6 +36,14 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)");
 
+                    b.Property<string>("FirstName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("LastName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -201,6 +209,45 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.RefreshTokens", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ReplacedByTokenId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("RefreshTokens", (string)null);
+                });
+
             modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Segments", b =>
                 {
                     b.Property<Guid>("Id")
@@ -276,6 +323,15 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Races", b =>
+                {
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.RefreshTokens", b =>
                 {
                     b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.AppUser", null)
                         .WithMany()
