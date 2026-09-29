@@ -27,7 +27,8 @@ public record RaceDetailDto(
     int Target,
     TimeOnly? StartTime,
     DateTime CreatedAtUtc,
-    IReadOnlyList<SegmentDetailDto> Segments)
+    IReadOnlyList<SegmentDetailDto> Segments,
+    DateOnly? RaceDate)
 {
     public static RaceDetailDto FromEntity(Races race, IReadOnlyList<SegmentDetailDto> segments) => new(
         race.Id,
@@ -35,5 +36,6 @@ public record RaceDetailDto(
         race.Target,
         race.StartTime,
         race.CreatedAtUtc,
-        segments);
+        segments,
+        race.RaceDate);
 }

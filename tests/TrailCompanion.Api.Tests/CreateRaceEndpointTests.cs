@@ -48,6 +48,7 @@ public class CreateRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var race = await response.Content.ReadFromJsonAsync<RaceDto>();
         Assert.Equal("UTMB", race!.Name);
         Assert.Equal(60, race.Target);
+        Assert.Null(race.RaceDate);
     }
 
     private WebApplicationFactory<Program> CreateFactory() =>

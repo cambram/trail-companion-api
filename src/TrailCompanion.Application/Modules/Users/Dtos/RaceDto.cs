@@ -7,12 +7,14 @@ public record RaceDto(
     string Name,
     int Target,
     TimeOnly? StartTime,
-    DateTime CreatedAtUtc)
+    DateTime CreatedAtUtc,
+    DateOnly? RaceDate)
 {
     public static RaceDto FromEntity(Races race) => new(
         race.Id,
         race.Name,
         race.Target,
         race.StartTime,
-        race.CreatedAtUtc);
+        race.CreatedAtUtc,
+        race.RaceDate);
 }

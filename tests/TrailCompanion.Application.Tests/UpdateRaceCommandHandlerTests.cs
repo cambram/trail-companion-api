@@ -36,19 +36,21 @@ public class UpdateRaceCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SetsAndClearsStartTime()
+    public async Task Handle_SetsAndClearsStartTimeAndRaceDate()
     {
         var race = GivenRace();
         var handler = new UpdateRaceCommandHandler(_races);
 
         var set = await handler.Handle(
-            new UpdateRaceCommand(_appUserId, race.Id, new CreateRaceRequest("A", null, new TimeOnly(6, 30))),
+            new UpdateRaceCommand(_appUserId, race.Id, new CreateRaceRequest("A", null, new TimeOnly(6, 30), new DateOnly(2026, 10, 4))),
             CancellationToken.None);
         Assert.Equal(new TimeOnly(6, 30), set.StartTime);
+        Assert.Equal(new DateOnly(2026, 10, 4), set.RaceDate);
 
         var cleared = await handler.Handle(
             new UpdateRaceCommand(_appUserId, race.Id, new CreateRaceRequest("A", null)), CancellationToken.None);
         Assert.Null(cleared.StartTime);
+        Assert.Null(cleared.RaceDate);
     }
 
     [Fact]

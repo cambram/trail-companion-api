@@ -39,6 +39,20 @@ public class CreateRaceCommandHandlerTests
         Assert.Equal(90, result.Target);
     }
 
+    [Fact]
+    public async Task Handle_WithRaceDate_StoresRaceDate_AndDefaultsToNull()
+    {
+        var dated = await CreateHandler().Handle(
+            new CreateRaceCommand(_appUserId, new CreateRaceRequest("UTMB", null, null, new DateOnly(2026, 10, 4))),
+            CancellationToken.None);
+        var undated = await CreateHandler().Handle(
+            new CreateRaceCommand(_appUserId, new CreateRaceRequest("UTMB", null)),
+            CancellationToken.None);
+
+        Assert.Equal(new DateOnly(2026, 10, 4), dated.RaceDate);
+        Assert.Null(undated.RaceDate);
+    }
+
     [Theory]
     [InlineData(null, null, "InvalidName")]
     [InlineData("   ", null, "InvalidName")]

@@ -59,17 +59,23 @@ public class RaceEditingEndpointTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
-    public async Task UpdateRace_StartTime_RoundTripsThroughDetail()
+    public async Task UpdateRace_StartTimeAndRaceDate_RoundTripThroughDetail_AndClear()
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
         await SignIn(client);
         var race = await CreateRace(client);
 
-        await client.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("UTMB", null, new TimeOnly(6, 30)));
+        await client.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("UTMB", null, new TimeOnly(6, 30), new DateOnly(2026, 10, 4)));
         var detail = await client.GetFromJsonAsync<RaceDetailDto>($"/api/races/{race.Id}", TestJson.Options);
+        var json = await client.GetStringAsync($"/api/races/{race.Id}");
+        await client.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("UTMB", null));
+        var cleared = await client.GetFromJsonAsync<RaceDetailDto>($"/api/races/{race.Id}", TestJson.Options);
 
         Assert.Equal(new TimeOnly(6, 30), detail!.StartTime);
+        Assert.Equal(new DateOnly(2026, 10, 4), detail.RaceDate);
+        Assert.Contains("\"raceDate\":\"2026-10-04\"", json);
+        Assert.Null(cleared!.RaceDate);
     }
 
     [Fact]

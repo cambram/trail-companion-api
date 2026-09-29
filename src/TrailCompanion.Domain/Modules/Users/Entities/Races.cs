@@ -7,4 +7,5 @@ public class Races : BaseEntity
     public string Name { get; set; } = string.Empty;
     public int Target { get; set; } = 60;
     public TimeOnly? StartTime { get; set; }
+    public DateOnly? RaceDate { get; set; }
 }

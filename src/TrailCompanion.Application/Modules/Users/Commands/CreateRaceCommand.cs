@@ -38,7 +38,8 @@ internal sealed class CreateRaceCommandHandler : IRequestHandler<CreateRaceComma
         {
             AppUserId = command.AppUserId,
             Name = name,
-            StartTime = command.Request.StartTime
+            StartTime = command.Request.StartTime,
+            RaceDate = command.Request.RaceDate
         };
 
         if (command.Request.Target is { } target)

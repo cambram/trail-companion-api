@@ -5,7 +5,7 @@
 # Domain
 
 - `AppUser`: the account. JWT `sub` = `AppUser.Id`.
-- `Races`: owned by `AppUserId`. `Name`, `Target` (carbs per hour, default 60).
+- `Races`: owned by `AppUserId`. `Name`, `Target` (carbs per hour, default 60), nullable `StartTime` (`TimeOnly`) and `RaceDate` (`DateOnly`, no timezone).
 - `Segments`: belong to a race. `Position`, `Name`, `Duration`, `Distance?`, `Notes`.
 - `Items`: belong to a segment, reference a `NutritionItems`, carry `Position`. They hold no nutrition values of their own.
 - `NutritionItems`: the user's nutrition library, owned by `AppUserId`. `Name` (unique per user), `Type` (`Gel`, `Liquid`, `Solid`, `Pill`, stored as text), nullable `Size` and macros (`Carbs`, `Calories`, `Caffeine`, `Sodium`, `Potassium`, `Magnesium`, `Calcium`). `Sodium`, `Potassium`, `Magnesium` and `Calcium` are `decimal?` at `HasPrecision(8, 2)`; the rest are `int?`. `Size`'s unit is implied by `Type`. Null means unknown, not zero.
