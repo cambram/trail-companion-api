@@ -1,9 +1,11 @@
+using TrailCompanion.Application.Common.Constants;
 using TrailCompanion.Application.Common.Contracts;
 using TrailCompanion.Application.Modules.Users.Commands;
 using TrailCompanion.Application.Modules.Users.Dtos;
 using TrailCompanion.Domain.Common.Exceptions;
 using TrailCompanion.Domain.Modules.Users.Entities;
 using TrailCompanion.Domain.Modules.Users.Repositories;
+using Microsoft.FeatureManagement;
 using NSubstitute;
 
 namespace TrailCompanion.Application.Tests;
@@ -12,8 +14,19 @@ public class RegisterUserCommandHandlerTests
 {
     private readonly IAppUserRepository _repository = Substitute.For<IAppUserRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
+    private readonly IVariantFeatureManager _featureManager = Substitute.For<IVariantFeatureManager>();
 
-    private RegisterUserCommandHandler CreateHandler() => new(_repository, _passwordHasher);
+    public RegisterUserCommandHandlerTests()
+    {
+        SetRegistrationEnabled(true);
+    }
+
+    private RegisterUserCommandHandler CreateHandler() => new(_repository, _passwordHasher, _featureManager);
+
+    private void SetRegistrationEnabled(bool enabled) =>
+        _featureManager
+            .IsEnabledAsync(FeatureFlags.RegistrationEnabled, Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<bool>(enabled));
 
     [Fact]
     public async Task Handle_WithValidRequest_StoresNormalisedEmailAndHashedPassword()
@@ -46,5 +59,32 @@ public class RegisterUserCommandHandlerTests
 
         Assert.Contains(exception.Failures, f => f.Code == expectedCode);
         await _repository.DidNotReceive().AddAsync(Arg.Any<AppUser>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenRegistrationDisabled_ThrowsForbiddenAndStoresNothing()
+    {
+        SetRegistrationEnabled(false);
+
+        var exception = await Assert.ThrowsAsync<ForbiddenException>(
+            () => CreateHandler().Handle(
+                new RegisterUserCommand(new RegisterUserRequest("user@example.com", "correct horse battery")),
+                CancellationToken.None));
+
+        Assert.Equal("Account creation is currently closed.", exception.Message);
+        _passwordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
+        await _repository.DidNotReceive().AddAsync(Arg.Any<AppUser>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenRegistrationDisabled_RejectsBeforeValidating()
+    {
+        SetRegistrationEnabled(false);
+
+        await Assert.ThrowsAsync<ForbiddenException>(
+            () => CreateHandler().Handle(
+                new RegisterUserCommand(new RegisterUserRequest("not-an-email", "short")),
+                CancellationToken.None));
     }
 }

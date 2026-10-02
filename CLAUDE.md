@@ -64,7 +64,7 @@ Api -> Application
 - Handlers: `internal sealed <RequestName>Handler`, same file as the request, in `Commands/` or `Queries/`.
 - Shared request validation goes in an `internal static <Thing>RequestRules` class (see `NutritionItemRequestRules`) that throws `ValidationFailedException`.
 - DTOs are records in `Modules/<Module>/Dtos/`, with a static `FromEntity` where needed.
-- Handlers throw domain exceptions; `ExceptionHandlingMiddleware` maps them: `ValidationFailedException`/`DomainException` 400, `UnauthorizedException` 401, `NotFoundException` 404, `ConflictException` 409, else 500. All `ProblemDetails` with `correlationId`.
+- Handlers throw domain exceptions; `ExceptionHandlingMiddleware` maps them: `ValidationFailedException`/`DomainException` 400, `UnauthorizedException` 401, `ForbiddenException` 403, `NotFoundException` 404, `ConflictException` 409, else 500. All `ProblemDetails` with `correlationId`.
 
 **Endpoints**
 - One `internal sealed` class per endpoint implementing `IEndpoint`, in `Endpoints/<Module>/<Verb><Noun>Endpoint.cs`. A class without `IEndpoint` is silently skipped; if a route 404s, check that first.

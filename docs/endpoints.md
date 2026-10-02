@@ -8,7 +8,7 @@ Every endpoint except register, login, refresh and logout needs `Authorization: 
 
 | Method | Route | Description | Request | Response | Endpoint file |
 |---|---|---|---|---|---|
-| POST | `/api/users/register` | Create a new account from email and password, returning user. | [RegisterUserRequest](#registeruserrequest) | 201 [AppUserDto](#appuserdto) | [RegisterUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RegisterUserEndpoint.cs) |
+| POST | `/api/users/register` | Create a new account from email and password, returning user. | [RegisterUserRequest](#registeruserrequest) | 201 [AppUserDto](#appuserdto); 403 when account creation is closed | [RegisterUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RegisterUserEndpoint.cs) |
 | POST | `/api/users/login` | Exchange email and password for a short-lived JWT access token. | [LoginUserRequest](#loginuserrequest) | 200 [AccessTokenDto](#accesstokendto) | [LoginUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/LoginUserEndpoint.cs) |
 | POST | `/api/users/refresh` | Rotate the `refresh_token` cookie and return a new access token. | cookie | 200 [AccessTokenDto](#accesstokendto) | [RefreshTokenEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RefreshTokenEndpoint.cs) |
 | POST | `/api/users/logout` | Revoke the refresh cookie and clear it. No bearer needed. | cookie | 204 | [LogoutEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/LogoutEndpoint.cs) |

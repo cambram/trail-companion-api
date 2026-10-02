@@ -1,4 +1,5 @@
 using TrailCompanion.Api.Common.Configuration.Extensions;
+using Microsoft.AspNetCore.Builder;
 using Npgsql;
 
 namespace TrailCompanion.Api.Tests;
@@ -54,5 +55,33 @@ public class EnvironmentAliasExtensionsTests
         const string keyValue = "Host=localhost;Port=5432;Database=trailcompanion;Username=postgres;Password=postgres";
 
         Assert.Equal(keyValue, EnvironmentAliasExtensions.ToNpgsqlConnectionString(keyValue));
+    }
+}
+
+[CollectionDefinition(nameof(ProcessEnvironmentCollection), DisableParallelization = true)]
+public class ProcessEnvironmentCollection
+{
+}
+
+[Collection(nameof(ProcessEnvironmentCollection))]
+public class EnvironmentAliasVariableTests
+{
+    [Fact]
+    public void AddEnvironmentAliases_MapsFeatureRegistrationEnabled()
+    {
+        Environment.SetEnvironmentVariable("FEATURE_REGISTRATION_ENABLED", "false");
+
+        try
+        {
+            var builder = WebApplication.CreateBuilder();
+
+            builder.AddEnvironmentAliases();
+
+            Assert.Equal("false", builder.Configuration["FeatureManagement:RegistrationEnabled"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FEATURE_REGISTRATION_ENABLED", null);
+        }
     }
 }

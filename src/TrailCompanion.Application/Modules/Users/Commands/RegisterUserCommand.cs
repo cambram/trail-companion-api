@@ -1,6 +1,8 @@
 using TrailCompanion.Application.Modules.Users.Dtos;
 using TrailCompanion.Domain.Modules.Users.Entities;
 using TrailCompanion.Domain.Modules.Users.Repositories;
+using TrailCompanion.Application.Common.Constants;
+using Microsoft.FeatureManagement;
 using MediatR;
 
 namespace TrailCompanion.Application.Modules.Users.Commands;
@@ -19,15 +21,25 @@ internal sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserC
 {
     private readonly IAppUserRepository _appUserRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IVariantFeatureManager _featureManager;
 
-    public RegisterUserCommandHandler(IAppUserRepository appUserRepository, IPasswordHasher passwordHasher)
+    public RegisterUserCommandHandler(
+        IAppUserRepository appUserRepository,
+        IPasswordHasher passwordHasher,
+        IVariantFeatureManager featureManager)
     {
         _appUserRepository = appUserRepository;
         _passwordHasher = passwordHasher;
+        _featureManager = featureManager;
     }
 
     public async Task<AppUserDto> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
     {
+        if (!await _featureManager.IsEnabledAsync(FeatureFlags.RegistrationEnabled, cancellationToken))
+        {
+            throw new ForbiddenException("Account creation is currently closed.");
+        }
+
         var email = UserEmail.Normalize(command.Request.Email);
         var password = command.Request.Password ?? string.Empty;
 

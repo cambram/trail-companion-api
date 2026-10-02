@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using TrailCompanion.Api.Common.Configuration.DependencyInjection;
 using TrailCompanion.Api.Endpoints;
 using TrailCompanion.Application.Modules.Users.Dtos;
@@ -57,6 +58,50 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
+    public async Task Register_WhenRegistrationDisabled_Returns403ProblemAndCreatesNoUser()
+    {
+        using var factory = CreateFactory(registrationEnabled: false);
+        using var client = factory.CreateClient();
+        var body = new RegisterUserRequest(NewEmail(), Password);
+
+        var register = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), body);
+
+        Assert.Equal(HttpStatusCode.Forbidden, register.StatusCode);
+        Assert.Equal("application/problem+json", register.Content.Headers.ContentType?.MediaType);
+        using var problem = JsonDocument.Parse(await register.Content.ReadAsStringAsync());
+        Assert.Equal("Account creation is currently closed.", problem.RootElement.GetProperty("detail").GetString());
+        Assert.False(string.IsNullOrEmpty(problem.RootElement.GetProperty("correlationId").GetString()));
+
+        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(body.Email, Password));
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_WhenRegistrationDisabled_StillWorksForExistingUsers()
+    {
+        var email = NewEmail();
+        using (var openFactory = CreateFactory())
+        using (var openClient = openFactory.CreateClient())
+        {
+            var register = await openClient.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(email, Password));
+            Assert.Equal(HttpStatusCode.Created, register.StatusCode);
+        }
+
+        using var closedFactory = CreateFactory(registrationEnabled: false);
+        using var client = closedFactory.CreateClient();
+
+        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(email, Password));
+        login.EnsureSuccessStatusCode();
+        var token = await login.Content.ReadFromJsonAsync<AccessTokenDto>();
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, Route(ApiEndpoints.Users.GetMyUser));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token!.AccessToken);
+        var me = await client.SendAsync(request);
+
+        me.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
     public async Task Login_WithWrongPasswordOrUnknownEmail_Returns401()
     {
         using var factory = CreateFactory();
@@ -108,10 +153,11 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
     }
 
-    private WebApplicationFactory<Program> CreateFactory() =>
+    private WebApplicationFactory<Program> CreateFactory(bool registrationEnabled = true) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder
             .UseSetting("ConnectionStrings:DefaultConnection", _fixture.ConnectionString)
-            .UseSetting("Jwt:Key", "test-signing-key-that-is-at-least-32-bytes-long"));
+            .UseSetting("Jwt:Key", "test-signing-key-that-is-at-least-32-bytes-long")
+            .UseSetting("FeatureManagement:RegistrationEnabled", registrationEnabled ? "true" : "false"));
 
     private static string Route(string route) => $"/{route}";
 

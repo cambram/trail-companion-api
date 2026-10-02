@@ -42,6 +42,7 @@ public class ExceptionHandlingMiddleware
         {
             NotFoundException => (StatusCodes.Status404NotFound, "Resource not found"),
             UnauthorizedException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
+            ForbiddenException => (StatusCodes.Status403Forbidden, "Forbidden"),
             ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
             ValidationFailedException => (StatusCodes.Status400BadRequest, "Invalid request"),
             DomainException => (StatusCodes.Status400BadRequest, "Invalid request"),

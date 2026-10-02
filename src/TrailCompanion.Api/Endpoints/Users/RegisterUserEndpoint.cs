@@ -27,6 +27,7 @@ internal sealed class RegisterUserEndpoint : IEndpoint
             .WithSummary("Creates an account from an email and password.")
             .Produces<AppUserDto>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .AllowAnonymous();
     }

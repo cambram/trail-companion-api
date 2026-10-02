@@ -174,6 +174,16 @@ In deployed environments, supply it as the environment variable `Jwt__Key` (or y
 
 `Cors:AllowedOrigins` is a string array. Development allows `http://localhost:5173`. Production must list the real frontend origin(s), exact scheme plus host with no trailing slash; the base `appsettings.json` default is empty, meaning no browser origin is allowed. The policy calls `AllowCredentials()` so the refresh cookie is sent, which is only safe because origins are an explicit list, never a wildcard.
 
+### Registration feature flag
+
+`FeatureManagement:RegistrationEnabled` (via `Microsoft.FeatureManagement`) controls whether `POST /api/users/register` creates accounts. `appsettings.json` defaults it to `true`. Do not remove that default: a feature with no definition counts as disabled.
+
+| Env var | Config key | Values |
+|---|---|---|
+| `FEATURE_REGISTRATION_ENABLED` | `FeatureManagement:RegistrationEnabled` | Unset or blank means enabled. `true` (any case) means enabled. Anything else, including typos, means disabled. |
+
+The value is read when the request arrives, from configuration loaded at startup. To change it, set the variable and restart the service. The web app has its own variable with the same name, set at build time. The two are not linked: the deploy must keep them the same. The API is the real gate. If the web app says open but the API says closed, users see "Account creation is currently closed" when they submit.
+
 ## Password handling
 
 `PasswordHasher` (`Infrastructure/Authentication/`):
@@ -225,6 +235,7 @@ All errors from handlers use `application/problem+json` (`ProblemDetails`) with 
 |---|---|
 | `ValidationFailedException`, `DomainException` | 400 |
 | `UnauthorizedException` | 401 |
+| `ForbiddenException` | 403 |
 | `NotFoundException` | 404 |
 | `ConflictException` | 409 |
 | anything else | 500 |
@@ -358,6 +369,7 @@ The API allows only origins listed in `Cors:AllowedOrigins`. In Development that
 | 401 on login | Bad email or password | ProblemDetails | Show a generic "Invalid email or password" |
 | 401 on other routes | Missing, expired or invalid token | **Empty** | Refresh once and retry; if refresh fails, clear token and redirect to login |
 | 401 on password change or delete account | Wrong current password | ProblemDetails | Show inline error, do not log out |
+| 403 on register | Account creation is closed (`FEATURE_REGISTRATION_ENABLED`) | ProblemDetails | Show "Account creation is currently closed", offer login |
 | 404 | Not found, **or owned by another user** | ProblemDetails | Treat as missing |
 | 409 | Email already registered (register) | ProblemDetails with `validationErrors` | Tell user, offer login |
 | 429 | Login rate limit hit | **Empty** | Show "try again in a minute" |
