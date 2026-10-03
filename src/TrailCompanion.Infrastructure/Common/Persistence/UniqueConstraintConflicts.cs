@@ -11,6 +11,8 @@ internal static class UniqueConstraintConflicts
                 ("DuplicateEmail", "An account with this email already exists."),
             ["IX_NutritionItems_AppUserId_Name"] =
                 ("DuplicateNutritionItem", "You already have a nutrition item with this name."),
+            ["UQ_AidStations_SegmentId"] =
+                ("SegmentHasAidStation", "This segment already has an aid station."),
         }.ToFrozenDictionary();
 
     public static bool TryTranslate(string? constraintName, out (string Code, string Message) conflict)

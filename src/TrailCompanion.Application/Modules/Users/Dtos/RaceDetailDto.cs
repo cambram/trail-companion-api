@@ -2,6 +2,21 @@ using TrailCompanion.Domain.Modules.Users.Entities;
 
 namespace TrailCompanion.Application.Modules.Users.Dtos;
 
+public record AidStationDetailDto(
+    Guid Id,
+    string Name,
+    string Notes,
+    IReadOnlyList<KitEntryDto> Kit,
+    IReadOnlyList<AidStationItemDto> Items)
+{
+    public static AidStationDetailDto FromEntity(AidStations station, IReadOnlyList<AidStationItemDto> items) => new(
+        station.Id,
+        station.Name,
+        station.Notes,
+        station.Kit.Select(KitEntryDto.FromEntity).ToList(),
+        items);
+}
+
 public record SegmentDetailDto(
     Guid Id,
     int Position,
@@ -9,16 +24,21 @@ public record SegmentDetailDto(
     int Duration,
     double? Distance,
     string Notes,
-    IReadOnlyList<ItemDto> Items)
+    IReadOnlyList<ItemDto> Items,
+    AidStationDetailDto? AidStation)
 {
-    public static SegmentDetailDto FromEntity(Segments segment, IReadOnlyList<ItemDto> items) => new(
+    public static SegmentDetailDto FromEntity(
+        Segments segment,
+        IReadOnlyList<ItemDto> items,
+        AidStationDetailDto? aidStation) => new(
         segment.Id,
         segment.Position,
         segment.Name,
         segment.Duration,
         segment.Distance,
         segment.Notes,
-        items);
+        items,
+        aidStation);
 }
 
 public record RaceDetailDto(

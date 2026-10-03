@@ -30,6 +30,15 @@ internal static class ApiEndpoints
         public const string CreateItem = ItemBase;
         public const string ReorderItems = $"{ItemBase}/order";
         public const string DeleteItem = $"{ItemBase}/{{id:guid}}";
+        private const string AidStationBase = $"{RaceBase}/{{raceId:guid}}/aid-stations";
+        public const string CreateAidStation = AidStationBase;
+        public const string UpdateAidStation = $"{AidStationBase}/{{id:guid}}";
+        public const string DeleteAidStation = $"{AidStationBase}/{{id:guid}}";
+        public const string MoveAidStation = $"{AidStationBase}/{{id:guid}}/move";
+        private const string AidStationItemBase = $"{AidStationBase}/{{aidStationId:guid}}/items";
+        public const string CreateAidStationItem = AidStationItemBase;
+        public const string ReorderAidStationItems = $"{AidStationItemBase}/order";
+        public const string DeleteAidStationItem = $"{AidStationItemBase}/{{id:guid}}";
         private const string NutritionItemBase = $"{ApiBase}/nutrition-items";
         public const string GetNutritionItems = NutritionItemBase;
         public const string CreateNutritionItem = NutritionItemBase;

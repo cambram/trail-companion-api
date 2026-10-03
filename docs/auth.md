@@ -34,6 +34,12 @@ Base path is `api`. Route constants live in `src/TrailCompanion.Api/Endpoints/Ap
 | PUT, DELETE | `/api/races/{raceId}/segments/{id}` | Bearer required | Update / delete segment |
 | POST | `/api/races/{raceId}/segments/{segmentId}/items` | Bearer required | Attach a library item to a segment |
 | DELETE | `/api/races/{raceId}/segments/{segmentId}/items/{id}` | Bearer required | Delete item |
+| POST | `/api/races/{raceId}/aid-stations` | Bearer required | Add an aid station before a segment |
+| PUT, DELETE | `/api/races/{raceId}/aid-stations/{id}` | Bearer required | Update / delete aid station |
+| PUT | `/api/races/{raceId}/aid-stations/{id}/move` | Bearer required | Move aid station to another segment (swaps if occupied) |
+| POST | `/api/races/{raceId}/aid-stations/{aidStationId}/items` | Bearer required | Attach a library item to an aid station |
+| PUT | `/api/races/{raceId}/aid-stations/{aidStationId}/items/order` | Bearer required | Reorder aid station items |
+| DELETE | `/api/races/{raceId}/aid-stations/{aidStationId}/items/{id}` | Bearer required | Delete aid station item |
 | GET, POST | `/api/nutrition-items` | Bearer required | List / create nutrition library item |
 | PUT, DELETE | `/api/nutrition-items/{id}` | Bearer required | Update / delete nutrition library item |
 
@@ -117,7 +123,7 @@ Body `{ "currentPassword": "...", "newPassword": "..." }`. Rate limited, 5 per m
 
 Body `{ "password": "..." }`. Rate limited, 5 per minute per IP. `401` ProblemDetails on a wrong password. On success returns `204` and clears the refresh cookie.
 
-Deletion is a **permanent hard delete**, with no grace period or undo: the user row and all their races, segments, items, nutrition items and refresh tokens are removed in one transaction. An access token issued before deletion stays cryptographically valid until it expires, but it reaches no data: the user and everything they owned are gone.
+Deletion is a **permanent hard delete**, with no grace period or undo: the user row and all their races, segments, items, aid stations, aid station items, nutrition items and refresh tokens are removed in one transaction. An access token issued before deletion stays cryptographically valid until it expires, but it reaches no data: the user and everything they owned are gone.
 
 ## Token
 
@@ -223,7 +229,7 @@ Per-route rules are set on each endpoint class individually: `RequireAuthorizati
 
 There are no roles. Authorization is ownership only:
 
-- Owned entities (races, nutrition items) carry `AppUserId`; segments and items are owned through the race chain.
+- Owned entities (races, nutrition items) carry `AppUserId`; segments, items, aid stations and aid station items are owned through the race chain.
 - Handlers take `appUserId` and filter on it. Ownership is enforced in the handler, not the endpoint.
 - Another user's record returns `404`, not `403`. A 403 would confirm the record exists.
 

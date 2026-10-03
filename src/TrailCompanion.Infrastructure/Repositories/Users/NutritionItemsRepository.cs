@@ -28,15 +28,20 @@ public class NutritionItemsRepository : Repository, INutritionItemsRepository
             .OrderBy(n => n.Name)
             .ToListAsync(cancellationToken);
 
-    public Task<int> CountUsagesAsync(
+    public async Task<int> CountUsagesAsync(
         Guid appUserId,
         Guid id,
-        CancellationToken cancellationToken = default) =>
-        Context.Set<Items>()
-            .CountAsync(
-                i => i.NutritionItemId == id
-                     && Context.Set<NutritionItems>().Any(n => n.Id == id && n.AppUserId == appUserId),
-                cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var owned = Context.Set<NutritionItems>().Where(n => n.Id == id && n.AppUserId == appUserId);
+
+        var inSegments = await Context.Set<Items>()
+            .CountAsync(i => i.NutritionItemId == id && owned.Any(), cancellationToken);
+        var atStations = await Context.Set<AidStationItems>()
+            .CountAsync(i => i.NutritionItemId == id && owned.Any(), cancellationToken);
+
+        return inSegments + atStations;
+    }
 
     public async Task AddAsync(NutritionItems nutritionItem, CancellationToken cancellationToken = default) =>
         await AddAsync<NutritionItems>(nutritionItem, cancellationToken);
