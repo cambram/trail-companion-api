@@ -36,8 +36,8 @@ public class DeleteNutritionItemCommandHandlerTests
     }
 
     [Theory]
-    [InlineData(1, "1 segment.")]
-    [InlineData(3, "3 segments.")]
+    [InlineData(1, "used 1 time in your race plans")]
+    [InlineData(3, "used 3 times in your race plans")]
     public async Task Handle_WhenInUse_ThrowsConflictAndSavesNothing(int usages, string expected)
     {
         GivenOwnedItem(usages);

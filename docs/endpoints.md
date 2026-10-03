@@ -2,7 +2,7 @@
 
 Every route, its request and response schema, and where the code lives. Base path is `api`. Route constants are in [ApiEndpoints.cs](../src/TrailCompanion.Api/Endpoints/ApiEndpoints.cs). Auth details are in [auth.md](./auth.md).
 
-Every endpoint except register, login, refresh and logout needs `Authorization: Bearer <token>`. Race, segment and item routes only ever see the caller's own data; anything else returns 404.
+Every endpoint except register, login, refresh and logout needs `Authorization: Bearer <token>`. Race, segment, item and aid station routes only ever see the caller's own data; anything else returns 404.
 
 ## Users
 
@@ -44,6 +44,22 @@ Every endpoint except register, login, refresh and logout needs `Authorization: 
 | PUT | `/api/races/{raceId}/segments/{segmentId}/items/order` | Set item order from a complete list of item ids; positions become 1..n. | [ReorderRequest](#reorderrequest) | 204 | [ReorderItemsEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/ReorderItemsEndpoint.cs) |
 | DELETE | `/api/races/{raceId}/segments/{segmentId}/items/{id}` | Delete one fuel item from a segment by its identifier. | none | 204 | [DeleteItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteItemEndpoint.cs) |
 
+## Aid stations
+
+An aid station sits before a segment (the gap between the previous segment and this one), at most one per segment. Moving a station into an occupied gap swaps the two. Station items count toward the carbs of the segment the station precedes. Deleting a library item used by any station returns 409 as it does for segment items.
+
+| Method | Route | Description | Request | Response | Endpoint file |
+|---|---|---|---|---|---|
+| POST | `/api/races/{raceId}/aid-stations` | Add an aid station before a segment. 409 when that segment already has one. | [CreateAidStationRequest](#createaidstationrequest) | 201 [AidStationDto](#aidstationdto) | [CreateAidStationEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateAidStationEndpoint.cs) |
+| PUT | `/api/races/{raceId}/aid-stations/{id}` | Replace an aid station's name, notes and kit list. | [AidStationRequest](#aidstationrequest) | 200 [AidStationDto](#aidstationdto) | [UpdateAidStationEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateAidStationEndpoint.cs) |
+| DELETE | `/api/races/{raceId}/aid-stations/{id}` | Delete an aid station and its items. | none | 204 | [DeleteAidStationEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteAidStationEndpoint.cs) |
+| PUT | `/api/races/{raceId}/aid-stations/{id}/move` | Move an aid station before another segment, swapping with any station already there. | [MoveAidStationRequest](#moveaidstationrequest) | 204 | [MoveAidStationEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/MoveAidStationEndpoint.cs) |
+| POST | `/api/races/{raceId}/aid-stations/{aidStationId}/items` | Attach a nutrition library item to an aid station. | [ItemRequest](#itemrequest) | 201 [AidStationItemDto](#aidstationitemdto) | [CreateAidStationItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateAidStationItemEndpoint.cs) |
+| PUT | `/api/races/{raceId}/aid-stations/{aidStationId}/items/order` | Set item order from a complete list of item ids; positions become 1..n. | [ReorderRequest](#reorderrequest) | 204 | [ReorderAidStationItemsEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/ReorderAidStationItemsEndpoint.cs) |
+| DELETE | `/api/races/{raceId}/aid-stations/{aidStationId}/items/{id}` | Delete one item from an aid station. | none | 204 | [DeleteAidStationItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteAidStationItemEndpoint.cs) |
+
+Every route returns 401 without a token and 404 for a missing or foreign race, station, segment or item. Validation failures return 400.
+
 ## Nutrition items
 
 `Type` is one of `Gel`, `Liquid`, `Solid` or `Pill`, and it implies the unit of `Size`: grams for Gel and Solid, millilitres for Liquid, milligrams for Pill. Carbs are grams, calories are calories, every other macro is milligrams. Sodium, potassium, magnesium and calcium accept decimals (`numeric(8,2)`); size and the rest are whole numbers. Names are unique per user.
@@ -53,7 +69,7 @@ Every endpoint except register, login, refresh and logout needs `Authorization: 
 | GET | `/api/nutrition-items` | List the caller's nutrition library, ordered by name. | none | 200 [NutritionItemDto](#nutritionitemdto)[] | [GetNutritionItemsEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetNutritionItemsEndpoint.cs) |
 | POST | `/api/nutrition-items` | Create a nutrition library item. 409 when the name is already taken. | [NutritionItemRequest](#nutritionitemrequest) | 201 [NutritionItemDto](#nutritionitemdto) | [CreateNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateNutritionItemEndpoint.cs) |
 | PUT | `/api/nutrition-items/{id}` | Replace every field of an owned library item. Changes apply to every race using it. | [NutritionItemRequest](#nutritionitemrequest) | 200 [NutritionItemDto](#nutritionitemdto) | [UpdateNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateNutritionItemEndpoint.cs) |
-| DELETE | `/api/nutrition-items/{id}` | Delete an owned library item. 409 when any segment still uses it. | none | 204 | [DeleteNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteNutritionItemEndpoint.cs) |
+| DELETE | `/api/nutrition-items/{id}` | Delete an owned library item. 409 when any segment or aid station still uses it. | none | 204 | [DeleteNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteNutritionItemEndpoint.cs) |
 
 ## Schemas
 
@@ -73,6 +89,10 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 | <a id="itemrequest"></a>ItemRequest | Identifier of the nutrition library item to attach to a segment. | `nutritionItemId` | [ItemRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ItemRequest.cs) |
 | <a id="nutritionitemrequest"></a>NutritionItemRequest | Name, type and optional size and macros for a nutrition library item. Every macro is nullable: blank means unknown, not zero. | `name`, `type`, `size?`, `carbs?`, `calories?`, `caffeine?`, `sodium?`, `potassium?`, `magnesium?`, `calcium?` | [NutritionItemRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/NutritionItemRequest.cs) |
 | <a id="reorderrequest"></a>ReorderRequest | Every sibling id exactly once, in the wanted order. | `ids` | [ReorderRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ReorderRequest.cs) |
+| <a id="createaidstationrequest"></a>CreateAidStationRequest | Segment the new aid station precedes, plus its name. | `segmentId`, `name` | [AidStationRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationRequest.cs) |
+| <a id="aidstationrequest"></a>AidStationRequest | Full replacement of an aid station's name, notes and kit list. | `name`, `notes?`, `kit?[]` (`label`, `certainty`: `Planned` or `Maybe`) | [AidStationRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationRequest.cs) |
+| <a id="kitentryrequest"></a>KitEntryRequest | One kit list entry on an aid station. | `label`, `certainty` | [AidStationRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationRequest.cs) |
+| <a id="moveaidstationrequest"></a>MoveAidStationRequest | Segment whose preceding gap the station moves to. | `segmentId` | [AidStationRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationRequest.cs) |
 
 ### Responses
 
@@ -81,11 +101,14 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 | <a id="appuserdto"></a>AppUserDto | User identifier, email, optional names and creation timestamp returned to the client. | `id`, `email`, `firstName?`, `lastName?`, `createdAtUtc` | [AppUserDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AppUserDto.cs) |
 | <a id="accesstokendto"></a>AccessTokenDto | Signed JWT string plus its UTC expiry time for clients. | `accessToken`, `expiresAtUtc` | [AccessTokenDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AccessTokenDto.cs) |
 | <a id="racedto"></a>RaceDto | Race summary with identifier, name, target and creation timestamp only. | `id`, `name`, `target`, `startTime?`, `createdAtUtc`, `raceDate?` | [RaceDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDto.cs) |
-| <a id="racedetaildto"></a>RaceDetailDto | Race with nested segments, each carrying its own items list. | `id`, `name`, `target`, `startTime?`, `createdAtUtc`, `raceDate?`, `segments[]` (`id`, `position`, `name`, `duration`, `distance?`, `notes`, `items[]`) | [RaceDetailDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDetailDto.cs) |
+| <a id="racedetaildto"></a>RaceDetailDto | Race with nested segments, each carrying its own items list. | `id`, `name`, `target`, `startTime?`, `createdAtUtc`, `raceDate?`, `segments[]` (`id`, `position`, `name`, `duration`, `distance?`, `notes`, `items[]`, `aidStation?` (`id`, `name`, `notes`, `kit[]`, `items[]` of AidStationItemDto)) | [RaceDetailDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDetailDto.cs) |
 | <a id="segmentdto"></a>SegmentDto | Segment fields including its race identifier, without nested items. | `id`, `raceId`, `position`, `name`, `duration`, `distance?`, `notes` | [SegmentDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/SegmentDto.cs) |
 | <a id="itemdto"></a>ItemDto | Segment item row with its position and a flattened copy of the referenced library item's values. | `id`, `segmentId`, `nutritionItemId`, `position`, `name`, `type`, `size?`, `carbs?`, `calories?`, `caffeine?`, `sodium?`, `potassium?`, `magnesium?`, `calcium?` | [ItemDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ItemDto.cs) |
 | <a id="nutritionitemdto"></a>NutritionItemDto | One nutrition library item owned by the caller. | `id`, `name`, `type`, `size?`, `carbs?`, `calories?`, `caffeine?`, `sodium?`, `potassium?`, `magnesium?`, `calcium?` | [NutritionItemDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/NutritionItemDto.cs) |
+| <a id="aidstationdto"></a>AidStationDto | Aid station without its items. | `id`, `segmentId`, `name`, `notes`, `kit[]` | [AidStationDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationDto.cs) |
+| <a id="aidstationitemdto"></a>AidStationItemDto | Aid station item row with its position and a flattened copy of the referenced library item's values. | `id`, `aidStationId`, `nutritionItemId`, `position`, `name`, `type`, `size?`, `carbs?`, `calories?`, `caffeine?`, `sodium?`, `potassium?`, `magnesium?`, `calcium?` | [AidStationItemDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationItemDto.cs) |
+| <a id="kitentrydto"></a>KitEntryDto | One kit list entry. | `label`, `certainty` (`Planned` or `Maybe`) | [KitEntryDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/KitEntryDto.cs) |
 
 ## Error responses
 
-Failures return `ProblemDetails` with a `correlationId`: 400 validation, 401 unauthenticated or bad login, 404 missing or not owned, 409 duplicate email, duplicate nutrition item name or a library item still in use, 429 login rate limit.
+Failures return `ProblemDetails` with a `correlationId`: 400 validation, 401 unauthenticated or bad login, 404 missing or not owned, 409 duplicate email, duplicate nutrition item name or a library item still in use or a segment that already has an aid station, 429 login rate limit.

@@ -1,3 +1,4 @@
+using TrailCompanion.Application.Modules.Users.Dtos;
 using TrailCompanion.Application.Modules.Users.Queries;
 using TrailCompanion.Domain.Common.Exceptions;
 using TrailCompanion.Domain.Modules.Users.Entities;
@@ -12,6 +13,8 @@ public class GetRaceQueryHandlerTests
     private readonly ISegmentsRepository _segments = Substitute.For<ISegmentsRepository>();
     private readonly IItemsRepository _items = Substitute.For<IItemsRepository>();
     private readonly INutritionItemsRepository _nutrition = Substitute.For<INutritionItemsRepository>();
+    private readonly IAidStationsRepository _stations = Substitute.For<IAidStationsRepository>();
+    private readonly IAidStationItemsRepository _stationItems = Substitute.For<IAidStationItemsRepository>();
     private readonly Guid _appUserId = Guid.NewGuid();
     private readonly Races _race;
 
@@ -22,9 +25,11 @@ public class GetRaceQueryHandlerTests
         _segments.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([]);
         _items.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([]);
         _nutrition.GetAllAsync(_appUserId, Arg.Any<CancellationToken>()).Returns([]);
+        _stations.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _stationItems.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([]);
     }
 
-    private GetRaceQueryHandler CreateHandler() => new(_races, _segments, _items, _nutrition);
+    private GetRaceQueryHandler CreateHandler() => new(_races, _segments, _items, _nutrition, _stations, _stationItems);
 
     private static NutritionItems Nutrition(string name, int? carbs, NutritionType type = NutritionType.Gel, int? size = null) =>
         new() { Id = Guid.NewGuid(), Name = name, Type = type, Carbs = carbs, Size = size };
@@ -66,6 +71,43 @@ public class GetRaceQueryHandlerTests
                 Assert.Equal(NutritionType.Liquid, item.Type);
                 Assert.Equal(500, item.Size);
             });
+    }
+
+    [Fact]
+    public async Task Handle_AttachesEachStationToItsSegmentWithKitAndOrderedItems()
+    {
+        var first = new Segments { Id = Guid.NewGuid(), RaceId = _race.Id, Position = 1, Name = "A" };
+        var second = new Segments { Id = Guid.NewGuid(), RaceId = _race.Id, Position = 2, Name = "B" };
+        var sandwich = Nutrition("Sandwich", 30, NutritionType.Solid);
+        var coke = Nutrition("Coke", 15, NutritionType.Liquid, 200);
+        var station = new AidStations
+        {
+            Id = Guid.NewGuid(),
+            SegmentId = second.Id,
+            Name = "Hout Bay",
+            Notes = "10 min",
+            Kit = [new KitEntry { Label = "Socks", Certainty = KitCertainty.Maybe }]
+        };
+        _segments.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([first, second]);
+        _nutrition.GetAllAsync(_appUserId, Arg.Any<CancellationToken>()).Returns([sandwich, coke]);
+        _stations.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([station]);
+        _stationItems.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns(
+        [
+            new AidStationItems { Id = Guid.NewGuid(), AidStationId = station.Id, Position = 1, NutritionItemId = sandwich.Id },
+            new AidStationItems { Id = Guid.NewGuid(), AidStationId = station.Id, Position = 2, NutritionItemId = coke.Id }
+        ]);
+
+        var result = await CreateHandler().Handle(new GetRaceQuery(_appUserId, _race.Id), CancellationToken.None);
+
+        Assert.Null(result.Segments[0].AidStation);
+        var detail = result.Segments[1].AidStation;
+        Assert.NotNull(detail);
+        Assert.Equal("Hout Bay", detail.Name);
+        Assert.Equal("10 min", detail.Notes);
+        Assert.Equal([new KitEntryDto("Socks", KitCertainty.Maybe)], detail.Kit);
+        Assert.Equal(["Sandwich", "Coke"], detail.Items.Select(i => i.Name));
+        Assert.Equal([30, 15], detail.Items.Select(i => i.Carbs));
+        Assert.Empty(result.Segments[1].Items);
     }
 
     [Fact]
