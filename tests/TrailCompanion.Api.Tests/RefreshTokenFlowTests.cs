@@ -99,6 +99,33 @@ public class RefreshTokenFlowTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
+    public async Task Refresh_ConcurrentlyWithTheSameCookie_SucceedsExactlyOnce()
+    {
+        using var factory = CreateFactory();
+        using var client = CreateClient(factory);
+        var cookie = CookieOf(await RegisterAndLogin(client));
+
+        var responses = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ => Refresh(client, cookie)));
+
+        Assert.Equal(1, responses.Count(r => r.StatusCode == HttpStatusCode.OK));
+    }
+
+    [Fact]
+    public async Task Refresh_AfterTheMaximumSessionLifetime_Returns401()
+    {
+        using var factory = CreateFactory();
+        using var client = CreateClient(factory);
+        var cookie = CookieOf(await RegisterAndLogin(client));
+
+        await using (var context = _fixture.CreateContext())
+        {
+            await context.Set<RefreshTokens>().ExecuteUpdateAsync(s => s.SetProperty(t => t.SessionStartedAtUtc, DateTime.UtcNow.AddDays(-91)));
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Refresh(client, cookie)).StatusCode);
+    }
+
+    [Fact]
     public async Task Logout_RevokesTheTokenAndClearsTheCookieWithoutABearer()
     {
         using var factory = CreateFactory();

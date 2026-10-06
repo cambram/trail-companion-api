@@ -23,18 +23,44 @@ public class RefreshAccessTokenCommandHandlerTests
     private RefreshAccessTokenCommandHandler CreateHandler() => new(_repository, _refreshTokenIssuer, _accessTokenIssuer);
 
     [Fact]
-    public async Task Handle_WithAnActiveToken_RotatesIt()
+    public async Task Handle_WithAnActiveToken_RotatesItAndKeepsTheSessionStart()
     {
         var stored = StoreToken(DateTime.UtcNow.AddDays(1), revokedAtUtc: null);
+        _repository.TryRevokeAsync(stored.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
 
         var result = await CreateHandler().Handle(new RefreshAccessTokenCommand("presented"), CancellationToken.None);
 
         Assert.Equal("next", result.RefreshToken);
         Assert.Equal("access", result.AccessToken.AccessToken);
-        Assert.NotNull(stored.RevokedAtUtc);
         await _repository.Received(1).AddAsync(
-            Arg.Is<RefreshTokens>(t => t != null && t.Id == stored.ReplacedByTokenId && t.TokenHash == "next-hash"),
+            Arg.Is<RefreshTokens>(t => t != null
+                && t.TokenHash == "next-hash"
+                && t.SessionStartedAtUtc == stored.SessionStartedAtUtc),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenAConcurrentRefreshAlreadyRotatedTheToken_RevokesEverythingAndThrows()
+    {
+        var stored = StoreToken(DateTime.UtcNow.AddDays(1), revokedAtUtc: null);
+        _repository.TryRevokeAsync(stored.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(false);
+
+        await Assert.ThrowsAsync<UnauthorizedException>(
+            () => CreateHandler().Handle(new RefreshAccessTokenCommand("presented"), CancellationToken.None));
+
+        await _repository.Received(1).RevokeAllAsync(stored.AppUserId, null, Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().AddAsync(Arg.Any<RefreshTokens>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WithASessionOlderThanTheMaximum_ThrowsUnauthorized()
+    {
+        StoreToken(DateTime.UtcNow.AddDays(1), revokedAtUtc: null, sessionStartedAtUtc: DateTime.UtcNow.AddDays(-91));
+
+        await Assert.ThrowsAsync<UnauthorizedException>(
+            () => CreateHandler().Handle(new RefreshAccessTokenCommand("presented"), CancellationToken.None));
+
+        _refreshTokenIssuer.DidNotReceive().Issue();
     }
 
     [Fact]
@@ -72,7 +98,7 @@ public class RefreshAccessTokenCommandHandlerTests
         _refreshTokenIssuer.DidNotReceive().Issue();
     }
 
-    private RefreshTokens StoreToken(DateTime expiresAtUtc, DateTime? revokedAtUtc)
+    private RefreshTokens StoreToken(DateTime expiresAtUtc, DateTime? revokedAtUtc, DateTime? sessionStartedAtUtc = null)
     {
         var stored = new RefreshTokens
         {
@@ -80,7 +106,8 @@ public class RefreshAccessTokenCommandHandlerTests
             AppUserId = Guid.NewGuid(),
             TokenHash = "presented-hash",
             ExpiresAtUtc = expiresAtUtc,
-            RevokedAtUtc = revokedAtUtc
+            RevokedAtUtc = revokedAtUtc,
+            SessionStartedAtUtc = sessionStartedAtUtc ?? DateTime.UtcNow.AddDays(-1)
         };
         _repository.GetByHashAsync("presented-hash", Arg.Any<CancellationToken>()).Returns(stored);
         return stored;
