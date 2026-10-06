@@ -56,6 +56,7 @@ internal sealed class CreateItemCommandHandler : IRequestHandler<CreateItemComma
 
         var existing = await _itemsRepository.GetBySegmentIdAsync(
             command.AppUserId, command.RaceId, command.SegmentId, cancellationToken);
+        AccountLimitRules.RequireRoom(existing.Count, AccountLimitRules.MaxItemsPerSegment, "items in a segment");
 
         var item = new Items
         {

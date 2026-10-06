@@ -34,6 +34,9 @@ internal sealed class CreateRaceCommandHandler : IRequestHandler<CreateRaceComma
 
         RequireValid(name, command.Request.Target);
 
+        var existing = await _racesRepository.GetAllAsync(command.AppUserId, cancellationToken);
+        AccountLimitRules.RequireRoom(existing.Count, AccountLimitRules.MaxRaces, "races");
+
         var race = new Races
         {
             AppUserId = command.AppUserId,

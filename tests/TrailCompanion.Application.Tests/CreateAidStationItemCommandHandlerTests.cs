@@ -78,4 +78,17 @@ public class CreateAidStationItemCommandHandlerTests
 
         await Assert.ThrowsAsync<ValidationFailedException>(() => Send(null));
     }
+
+    [Fact]
+    public async Task Handle_AtTheStationItemLimit_ThrowsAndStoresNothing()
+    {
+        GivenOwnedStation(Enumerable.Range(1, AccountLimitRules.MaxItemsPerAidStation)
+            .Select(i => new AidStationItems { Position = i })
+            .ToArray());
+        GivenOwnedNutrition();
+
+        await Assert.ThrowsAsync<ValidationFailedException>(() => Send(_nutritionItemId));
+
+        await _items.DidNotReceive().AddAsync(Arg.Any<AidStationItems>(), Arg.Any<CancellationToken>());
+    }
 }

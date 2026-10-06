@@ -68,4 +68,17 @@ public class CreateRaceCommandHandlerTests
         Assert.Contains(exception.Failures, f => f.Code == expectedCode);
         await _repository.DidNotReceive().AddAsync(Arg.Any<Races>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Handle_AtTheRaceLimit_ThrowsAndStoresNothing()
+    {
+        _repository.GetAllAsync(_appUserId, Arg.Any<CancellationToken>())
+            .Returns(Enumerable.Range(0, AccountLimitRules.MaxRaces).Select(_ => new Races()).ToList());
+
+        await Assert.ThrowsAsync<ValidationFailedException>(() => CreateHandler().Handle(
+            new CreateRaceCommand(_appUserId, new CreateRaceRequest("UTMB", null)),
+            CancellationToken.None));
+
+        await _repository.DidNotReceive().AddAsync(Arg.Any<Races>(), Arg.Any<CancellationToken>());
+    }
 }

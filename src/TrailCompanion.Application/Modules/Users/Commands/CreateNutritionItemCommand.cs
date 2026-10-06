@@ -33,6 +33,9 @@ internal sealed class CreateNutritionItemCommandHandler
     {
         NutritionItemRequestRules.RequireValid(command.Request);
 
+        var existing = await _nutritionItems.GetAllAsync(command.AppUserId, cancellationToken);
+        AccountLimitRules.RequireRoom(existing.Count, AccountLimitRules.MaxNutritionItems, "nutrition items");
+
         var item = new NutritionItems
         {
             AppUserId = command.AppUserId,
