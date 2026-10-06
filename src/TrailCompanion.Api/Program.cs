@@ -19,7 +19,15 @@ var app = builder.Build();
 // ponytail: migrate on boot; move to a pre-deploy job if you ever run >1 instance
 using (var scope = app.Services.CreateScope())
 {
-    await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
+    var migrationsConnection = app.Configuration.GetConnectionString("MigrationsConnection");
+
+    await using var migrationContext = string.IsNullOrWhiteSpace(migrationsConnection)
+        ? scope.ServiceProvider.GetRequiredService<ApplicationDbContext>()
+        : new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseNpgsql(migrationsConnection)
+            .Options);
+
+    await migrationContext.Database.MigrateAsync();
 }
 
 app.UseForwardedHeaders();

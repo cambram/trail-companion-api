@@ -24,6 +24,13 @@ internal static class EnvironmentAliasExtensions
             aliases["ConnectionStrings:DefaultConnection"] = ToNpgsqlConnectionString(databaseUrl);
         }
 
+        var migrationsUrl = FirstSet("DATABASE_URL_MIGRATIONS");
+
+        if (migrationsUrl is not null)
+        {
+            aliases["ConnectionStrings:MigrationsConnection"] = ToNpgsqlConnectionString(migrationsUrl);
+        }
+
         Alias(aliases, "JWT_KEY", "Jwt:Key");
         Alias(aliases, "JWT_ISSUER", "Jwt:Issuer");
         Alias(aliases, "JWT_AUDIENCE", "Jwt:Audience");
