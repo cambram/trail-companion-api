@@ -9,6 +9,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddCorrelation();
         services.AddFeatureFlags();
+        services.AddLoginThrottle();
 
         return services;
     }

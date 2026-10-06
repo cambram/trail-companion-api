@@ -1,4 +1,5 @@
 using TrailCompanion.Application.Common.Contracts;
+using TrailCompanion.Application.Modules.Users;
 using TrailCompanion.Application.Modules.Users.Commands;
 using TrailCompanion.Application.Modules.Users.Dtos;
 using TrailCompanion.Domain.Common.Exceptions;
@@ -16,7 +17,9 @@ public class LoginUserCommandHandlerTests
     private readonly IRefreshTokenIssuer _refreshTokenIssuer = Substitute.For<IRefreshTokenIssuer>();
     private readonly IRefreshTokensRepository _refreshTokensRepository = Substitute.For<IRefreshTokensRepository>();
 
-    private LoginUserCommandHandler CreateHandler() => new(_repository, _passwordHasher, _accessTokenIssuer, _refreshTokenIssuer, _refreshTokensRepository);
+    private readonly LoginThrottle _throttle = new(TimeProvider.System);
+
+    private LoginUserCommandHandler CreateHandler() => new(_repository, _passwordHasher, _accessTokenIssuer, _refreshTokenIssuer, _refreshTokensRepository, _throttle);
 
     [Fact]
     public async Task Handle_WithCorrectPassword_IssuesATokenForThatUser()
@@ -88,5 +91,35 @@ public class LoginUserCommandHandlerTests
         Assert.Equal("Invalid username or password.", exception.Message);
         _passwordHasher.Received(1).Verify("password", null);
         _accessTokenIssuer.DidNotReceive().Issue(Arg.Any<Guid>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheUsernameIsThrottled_RejectsWithoutCheckingThePassword()
+    {
+        for (var i = 0; i < LoginThrottle.MaxFailures; i++)
+        {
+            _throttle.RecordFailure("runner");
+        }
+
+        await Assert.ThrowsAsync<UnauthorizedException>(() => CreateHandler().Handle(
+            new LoginUserCommand(new LoginUserRequest("runner", "password")),
+            CancellationToken.None));
+
+        _passwordHasher.DidNotReceive().Verify(Arg.Any<string>(), Arg.Any<string?>());
+    }
+
+    [Fact]
+    public async Task Handle_WithAWrongPassword_RecordsAFailure()
+    {
+        for (var i = 0; i < LoginThrottle.MaxFailures - 1; i++)
+        {
+            _throttle.RecordFailure("runner");
+        }
+
+        await Assert.ThrowsAsync<UnauthorizedException>(() => CreateHandler().Handle(
+            new LoginUserCommand(new LoginUserRequest("runner", "wrong")),
+            CancellationToken.None));
+
+        Assert.True(_throttle.IsBlocked("runner"));
     }
 }
