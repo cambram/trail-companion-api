@@ -15,18 +15,44 @@ public class RegisterUserCommandHandlerTests
     private readonly IAppUserRepository _repository = Substitute.For<IAppUserRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly IVariantFeatureManager _featureManager = Substitute.For<IVariantFeatureManager>();
+    private readonly IBreachedPasswordChecker _breachedPasswords = Substitute.For<IBreachedPasswordChecker>();
 
     public RegisterUserCommandHandlerTests()
     {
         SetRegistrationEnabled(true);
     }
 
-    private RegisterUserCommandHandler CreateHandler() => new(_repository, _passwordHasher, _featureManager);
+    private RegisterUserCommandHandler CreateHandler() => new(_repository, _passwordHasher, _featureManager, _breachedPasswords);
 
     private void SetRegistrationEnabled(bool enabled) =>
         _featureManager
             .IsEnabledAsync(FeatureFlags.RegistrationEnabled, Arg.Any<CancellationToken>())
             .Returns(new ValueTask<bool>(enabled));
+
+    [Fact]
+    public async Task Handle_WithABreachedPasswordAndTheCheckOn_ThrowsValidation()
+    {
+        _featureManager.IsEnabledAsync(FeatureFlags.BreachedPasswordCheck, Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<bool>(true));
+        _breachedPasswords.IsBreachedAsync("correct horse battery", Arg.Any<CancellationToken>()).Returns(true);
+
+        var exception = await Assert.ThrowsAsync<ValidationFailedException>(() => CreateHandler().Handle(
+            new RegisterUserCommand(new RegisterUserRequest("runner", "correct horse battery")),
+            CancellationToken.None));
+
+        Assert.Contains(exception.Failures, f => f.Code == "PasswordBreached");
+        await _repository.DidNotReceive().AddAsync(Arg.Any<AppUser>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WithTheCheckOff_DoesNotCallTheChecker()
+    {
+        await CreateHandler().Handle(
+            new RegisterUserCommand(new RegisterUserRequest("runner", "correct horse battery")),
+            CancellationToken.None);
+
+        await _breachedPasswords.DidNotReceive().IsBreachedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
 
     [Fact]
     public async Task Handle_WithValidRequest_StoresNormalisedUsernameAndHashedPassword()

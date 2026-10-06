@@ -29,6 +29,7 @@ internal static class EnvironmentAliasExtensions
         Alias(aliases, "JWT_AUDIENCE", "Jwt:Audience");
         Alias(aliases, "JWT_ACCESS_TOKEN_LIFETIME_MINUTES", "Jwt:AccessTokenLifetimeMinutes");
         Alias(aliases, "FEATURE_REGISTRATION_ENABLED", "FeatureManagement:RegistrationEnabled");
+        Alias(aliases, "FEATURE_BREACHED_PASSWORD_CHECK", "FeatureManagement:BreachedPasswordCheck");
 
         var allowedOrigins = FirstSet("CORS_ALLOWED_ORIGINS");
 

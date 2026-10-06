@@ -19,3 +19,6 @@ services:
       # Must match FEATURE_REGISTRATION_ENABLED on trail-companion-web. Unset means enabled.
       - key: FEATURE_REGISTRATION_ENABLED
         sync: false
+      # HIBP k-anonymity check on register and password change. "true" in production.
+      - key: FEATURE_BREACHED_PASSWORD_CHECK
+        value: "true"
