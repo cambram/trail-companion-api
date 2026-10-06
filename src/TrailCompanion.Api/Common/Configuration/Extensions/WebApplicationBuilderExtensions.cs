@@ -6,6 +6,7 @@ internal static class WebApplicationBuilderExtensions
 {
     internal static WebApplicationBuilder AddApi(this WebApplicationBuilder builder)
     {
+        builder.Services.AddApiForwardedHeaders();
         builder.Services.AddApiAuthentication();
         builder.Services.AddApiRateLimiting();
         builder.Services.AddApiCors(builder.Configuration);

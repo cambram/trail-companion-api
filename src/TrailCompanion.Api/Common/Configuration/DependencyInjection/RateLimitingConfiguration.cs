@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -28,10 +30,33 @@ internal static class RateLimitingConfiguration
 
     private static void AddPerIpPolicy(RateLimiterOptions options, string policyName, int permitLimit) =>
         options.AddPolicy(policyName, context => RateLimitPartition.GetFixedWindowLimiter(
-            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            PartitionKey(context.Connection.RemoteIpAddress),
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = permitLimit,
                 Window = TimeSpan.FromMinutes(1)
             }));
+
+    internal static string PartitionKey(IPAddress? address)
+    {
+        if (address is null)
+        {
+            return "unknown";
+        }
+
+        if (address.IsIPv4MappedToIPv6)
+        {
+            return address.MapToIPv4().ToString();
+        }
+
+        if (address.AddressFamily != AddressFamily.InterNetworkV6)
+        {
+            return address.ToString();
+        }
+
+        var bytes = address.GetAddressBytes();
+        Array.Clear(bytes, 8, 8);
+
+        return $"{new IPAddress(bytes)}/64";
+    }
 }
