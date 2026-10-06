@@ -1,4 +1,5 @@
 using TrailCompanion.Api.Common.Configuration.DependencyInjection;
+using TrailCompanion.Api.Common.Filters;
 using TrailCompanion.Api.Common.Services;
 using TrailCompanion.Application.Modules.Users.Commands;
 using TrailCompanion.Application.Modules.Users.Dtos;
@@ -31,8 +32,10 @@ internal sealed class RefreshTokenEndpoint : IEndpoint
             .WithSummary("Rotates the refresh cookie and returns a new bearer token. Reusing a spent refresh token revokes every refresh token for that user.")
             .Produces<AccessTokenDto>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .RequireRateLimiting(RateLimitingConfiguration.RefreshPolicyName)
+            .AddEndpointFilter<AllowedOriginFilter>()
             .AllowAnonymous();
     }
 }

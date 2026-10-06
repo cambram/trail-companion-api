@@ -158,6 +158,37 @@ public class RefreshTokenFlowTests : IClassFixture<PostgresDatabaseFixture>
         await using var context = _fixture.CreateContext();
         Assert.False(await context.Set<RefreshTokens>().AnyAsync(t => t.TokenHash == raw));
     }
+    [Theory]
+    [InlineData("https://evil.example", HttpStatusCode.Forbidden)]
+    [InlineData("http://localhost:5173", HttpStatusCode.OK)]
+    public async Task Refresh_ChecksTheOriginHeader(string origin, HttpStatusCode expected)
+    {
+        using var factory = CreateFactory();
+        using var client = CreateClient(factory);
+        var cookie = CookieOf(await RegisterAndLogin(client));
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, Route(ApiEndpoints.Users.RefreshToken));
+        request.Headers.Add("Cookie", cookie);
+        request.Headers.Add("Origin", origin);
+
+        Assert.Equal(expected, (await client.SendAsync(request)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Logout_FromAForeignOrigin_IsRejectedAndTheSessionSurvives()
+    {
+        using var factory = CreateFactory();
+        using var client = CreateClient(factory);
+        var cookie = CookieOf(await RegisterAndLogin(client));
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, Route(ApiEndpoints.Users.Logout));
+        request.Headers.Add("Cookie", cookie);
+        request.Headers.Add("Origin", "https://evil.example");
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(request)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Refresh(client, cookie)).StatusCode);
+    }
+
 
     private static async Task<HttpResponseMessage> RegisterAndLogin(HttpClient client)
     {

@@ -1,3 +1,4 @@
+using TrailCompanion.Api.Common.Filters;
 using TrailCompanion.Api.Common.Services;
 using TrailCompanion.Application.Modules.Users.Commands;
 using MediatR;
@@ -27,6 +28,8 @@ internal sealed class LogoutEndpoint : IEndpoint
             .WithTags(Modules.Users)
             .WithSummary("Revokes the presented refresh cookie and clears it. Works with an expired bearer token.")
             .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .AddEndpointFilter<AllowedOriginFilter>()
             .AllowAnonymous();
     }
 }
