@@ -43,6 +43,17 @@ public class ChangePasswordCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_OnSuccess_StampsThePasswordChangeTime()
+    {
+        var before = DateTime.UtcNow;
+
+        await Change("current password", "brand new password");
+
+        Assert.NotNull(_appUser.PasswordChangedAtUtc);
+        Assert.True(_appUser.PasswordChangedAtUtc >= before);
+    }
+
+    [Fact]
     public async Task Handle_WithWrongCurrentPassword_ThrowsUnauthorizedAndChangesNothing()
     {
         await Assert.ThrowsAsync<UnauthorizedException>(() => Change("wrong", "brand new password"));

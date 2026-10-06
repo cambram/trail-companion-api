@@ -1,3 +1,4 @@
+using TrailCompanion.Api.Common.Services;
 using TrailCompanion.Application.Common.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -19,6 +20,10 @@ internal static class AuthenticationConfiguration
                 var jwt = jwtOptions.Value;
 
                 options.MapInboundClaims = false;
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = AccessTokenRevocation.RejectStaleAsync
+                };
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidIssuer = jwt.Issuer,

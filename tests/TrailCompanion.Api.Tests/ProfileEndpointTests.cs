@@ -112,6 +112,53 @@ public class ProfileEndpointTests : IClassFixture<PostgresDatabaseFixture>
         Assert.False(await context.Set<RefreshTokens>().AnyAsync(t => t.AppUserId == me!.Id));
     }
 
+    [Fact]
+    public async Task ChangePassword_RejectsAccessTokensIssuedBeforeIt()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        await SignIn(client);
+        var oldToken = client.DefaultRequestHeaders.Authorization;
+        await Task.Delay(TimeSpan.FromSeconds(1.1));
+
+        var change = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.ChangePassword), new ChangePasswordRequest(Password, NewPassword));
+        change.EnsureSuccessStatusCode();
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, Route(ApiEndpoints.Users.GetMyUser));
+        request.Headers.Authorization = oldToken;
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.SendAsync(request)).StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_CurrentCookieStillRefreshesAndTheNewTokenWorks()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        await SignIn(client);
+        await Task.Delay(TimeSpan.FromSeconds(1.1));
+
+        (await client.PostAsJsonAsync(Route(ApiEndpoints.Users.ChangePassword), new ChangePasswordRequest(Password, NewPassword))).EnsureSuccessStatusCode();
+
+        var refreshed = await client.PostAsync(Route(ApiEndpoints.Users.RefreshToken), null);
+        refreshed.EnsureSuccessStatusCode();
+        var token = await refreshed.Content.ReadFromJsonAsync<AccessTokenDto>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token!.AccessToken);
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(Route(ApiEndpoints.Users.GetMyUser))).StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteAccount_RejectsTheDeletedUsersAccessToken()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        await SignIn(client);
+
+        (await client.SendAsync(DeleteMe(Password))).EnsureSuccessStatusCode();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(Route(ApiEndpoints.Users.GetMyUser))).StatusCode);
+    }
+
     private static async Task<Guid> CreateRaceWithSegmentAndItem(HttpClient client)
     {
         var race = await (await client.PostAsJsonAsync(Route(ApiEndpoints.Users.CreateRace), new CreateRaceRequest("UTMB", null)))

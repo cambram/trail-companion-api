@@ -64,6 +64,7 @@ internal sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePassw
         }
 
         appUser.PasswordHash = _passwordHasher.Hash(newPassword);
+        appUser.PasswordChangedAtUtc = DateTime.UtcNow;
         await _appUserRepository.SaveChangesAsync(cancellationToken);
 
         var keptTokenHash = string.IsNullOrEmpty(command.CurrentRefreshToken)
