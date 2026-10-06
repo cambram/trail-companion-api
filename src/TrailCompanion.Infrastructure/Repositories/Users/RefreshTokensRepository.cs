@@ -22,18 +22,32 @@ public class RefreshTokensRepository : Repository, IRefreshTokensRepository
     public async Task AddAsync(RefreshTokens refreshToken, CancellationToken cancellationToken = default) =>
         await AddAsync<RefreshTokens>(refreshToken, cancellationToken);
 
-    public async Task<bool> TryRevokeAsync(
-        Guid id,
-        Guid replacedByTokenId,
-        CancellationToken cancellationToken = default) =>
-        await Context.Set<RefreshTokens>()
-            .Where(t => t.Id == id && t.RevokedAtUtc == null)
+    public async Task<bool> RotateAsync(
+        Guid replacingId,
+        RefreshTokens next,
+        CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await Context.Database.BeginTransactionAsync(cancellationToken);
+
+        var revoked = await Context.Set<RefreshTokens>()
+            .Where(t => t.Id == replacingId && t.RevokedAtUtc == null)
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(t => t.RevokedAtUtc, DateTime.UtcNow)
-                    .SetProperty(t => t.ReplacedByTokenId, replacedByTokenId)
+                    .SetProperty(t => t.ReplacedByTokenId, next.Id)
                     .SetProperty(t => t.UpdatedAtUtc, DateTime.UtcNow),
-                cancellationToken) == 1;
+                cancellationToken);
+
+        if (revoked == 0)
+        {
+            return false;
+        }
+
+        await AddAsync<RefreshTokens>(next, cancellationToken);
+        await SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
 
     public Task RevokeAllAsync(
         Guid appUserId,

@@ -26,13 +26,14 @@ public class RefreshAccessTokenCommandHandlerTests
     public async Task Handle_WithAnActiveToken_RotatesItAndKeepsTheSessionStart()
     {
         var stored = StoreToken(DateTime.UtcNow.AddDays(1), revokedAtUtc: null);
-        _repository.TryRevokeAsync(stored.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
+        _repository.RotateAsync(stored.Id, Arg.Any<RefreshTokens>(), Arg.Any<CancellationToken>()).Returns(true);
 
         var result = await CreateHandler().Handle(new RefreshAccessTokenCommand("presented"), CancellationToken.None);
 
         Assert.Equal("next", result.RefreshToken);
         Assert.Equal("access", result.AccessToken.AccessToken);
-        await _repository.Received(1).AddAsync(
+        await _repository.Received(1).RotateAsync(
+            stored.Id,
             Arg.Is<RefreshTokens>(t => t != null
                 && t.TokenHash == "next-hash"
                 && t.SessionStartedAtUtc == stored.SessionStartedAtUtc),
@@ -43,7 +44,7 @@ public class RefreshAccessTokenCommandHandlerTests
     public async Task Handle_WhenAConcurrentRefreshAlreadyRotatedTheToken_RevokesEverythingAndThrows()
     {
         var stored = StoreToken(DateTime.UtcNow.AddDays(1), revokedAtUtc: null);
-        _repository.TryRevokeAsync(stored.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(false);
+        _repository.RotateAsync(stored.Id, Arg.Any<RefreshTokens>(), Arg.Any<CancellationToken>()).Returns(false);
 
         await Assert.ThrowsAsync<UnauthorizedException>(
             () => CreateHandler().Handle(new RefreshAccessTokenCommand("presented"), CancellationToken.None));
@@ -61,6 +62,8 @@ public class RefreshAccessTokenCommandHandlerTests
             () => CreateHandler().Handle(new RefreshAccessTokenCommand("presented"), CancellationToken.None));
 
         _refreshTokenIssuer.DidNotReceive().Issue();
+        await _repository.DidNotReceive().RotateAsync(Arg.Any<Guid>(), Arg.Any<RefreshTokens>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().RevokeAllAsync(Arg.Any<Guid>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

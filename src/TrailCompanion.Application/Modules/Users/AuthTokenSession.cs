@@ -26,15 +26,16 @@ internal static class AuthTokenSession
             SessionStartedAtUtc = replacing?.SessionStartedAtUtc ?? DateTime.UtcNow
         };
 
-        if (replacing is not null
-            && !await refreshTokensRepository.TryRevokeAsync(replacing.Id, stored.Id, cancellationToken))
+        if (replacing is null)
+        {
+            await refreshTokensRepository.AddAsync(stored, cancellationToken);
+            await refreshTokensRepository.SaveChangesAsync(cancellationToken);
+        }
+        else if (!await refreshTokensRepository.RotateAsync(replacing.Id, stored, cancellationToken))
         {
             await refreshTokensRepository.RevokeAllAsync(appUserId, null, cancellationToken);
             throw new UnauthorizedException("Refresh token has already been used.");
         }
-
-        await refreshTokensRepository.AddAsync(stored, cancellationToken);
-        await refreshTokensRepository.SaveChangesAsync(cancellationToken);
 
         return new AuthTokens(
             AccessTokenDto.FromAccessToken(accessTokenIssuer.Issue(appUserId)),

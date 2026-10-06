@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Net;
 using System.Net.Http.Json;
 using TrailCompanion.Api.Endpoints;
@@ -108,6 +110,11 @@ public class RefreshTokenFlowTests : IClassFixture<PostgresDatabaseFixture>
         var responses = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ => Refresh(client, cookie)));
 
         Assert.Equal(1, responses.Count(r => r.StatusCode == HttpStatusCode.OK));
+
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cookie["refresh_token=".Length..])));
+        await using var context = _fixture.CreateContext();
+        var userId = (await context.Set<RefreshTokens>().SingleAsync(t => t.TokenHash == hash)).AppUserId;
+        Assert.False(await context.Set<RefreshTokens>().AnyAsync(t => t.AppUserId == userId && t.RevokedAtUtc == null));
     }
 
     [Fact]
