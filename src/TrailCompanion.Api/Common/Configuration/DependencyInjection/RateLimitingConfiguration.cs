@@ -11,6 +11,13 @@ internal static class RateLimitingConfiguration
     internal const string RefreshPolicyName = "refresh";
     internal const string AccountPolicyName = "account";
 
+    internal const string RegisterPolicyName = "register";
+    internal const int RegisterPermitLimit = 10;
+    internal const int PasswordHashingConcurrency = 2;
+    internal const int PasswordHashingQueueLimit = 10;
+
+    internal sealed record PasswordHashingEndpoint;
+
     internal const int LoginPermitLimit = 5;
     internal const int RefreshPermitLimit = 30;
     internal const int AccountPermitLimit = 5;
@@ -23,6 +30,18 @@ internal static class RateLimitingConfiguration
             AddPerIpPolicy(options, LoginPolicyName, LoginPermitLimit);
             AddPerIpPolicy(options, RefreshPolicyName, RefreshPermitLimit);
             AddPerIpPolicy(options, AccountPolicyName, AccountPermitLimit);
+            AddPerIpPolicy(options, RegisterPolicyName, RegisterPermitLimit);
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                context.GetEndpoint()?.Metadata.GetMetadata<PasswordHashingEndpoint>() is null
+                    ? RateLimitPartition.GetNoLimiter(string.Empty)
+                    : RateLimitPartition.GetConcurrencyLimiter(
+                        nameof(PasswordHashingEndpoint),
+                        _ => new ConcurrencyLimiterOptions
+                        {
+                            PermitLimit = PasswordHashingConcurrency,
+                            QueueLimit = PasswordHashingQueueLimit,
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                        }));
         });
 
         return services;

@@ -39,6 +39,7 @@ internal sealed class DeleteMyUserEndpoint : IEndpoint
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .RequireRateLimiting(RateLimitingConfiguration.AccountPolicyName)
+            .WithMetadata(new RateLimitingConfiguration.PasswordHashingEndpoint())
             .RequireAuthorization();
     }
 }

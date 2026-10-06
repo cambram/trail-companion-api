@@ -117,4 +117,14 @@ public class RegisterUserCommandHandlerTests
                 new RegisterUserCommand(new RegisterUserRequest("ab", "short")),
                 CancellationToken.None));
     }
+
+    [Fact]
+    public async Task Handle_WithAPasswordOver128Characters_ThrowsValidation()
+    {
+        await Assert.ThrowsAsync<ValidationFailedException>(() => CreateHandler().Handle(
+            new RegisterUserCommand(new RegisterUserRequest("runner", new string('a', 129))),
+            CancellationToken.None));
+
+        _passwordHasher.DidNotReceive().Hash(Arg.Any<string>());
+    }
 }

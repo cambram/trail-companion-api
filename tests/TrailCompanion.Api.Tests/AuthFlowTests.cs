@@ -23,6 +23,22 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
+    public async Task Register_BeyondThePermitLimit_Returns429()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        for (var attempt = 0; attempt < RateLimitingConfiguration.RegisterPermitLimit; attempt++)
+        {
+            await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(NewUsername(), Password));
+        }
+
+        var limited = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(NewUsername(), Password));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+    }
+
+    [Fact]
     public async Task RegisterThenLogin_IssuesATokenThatReachesTheProtectedEndpoint()
     {
         using var factory = CreateFactory();

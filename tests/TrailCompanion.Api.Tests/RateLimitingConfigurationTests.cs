@@ -1,4 +1,8 @@
 using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using TrailCompanion.Api.Common.Configuration.DependencyInjection;
 
 namespace TrailCompanion.Api.Tests;
@@ -28,5 +32,31 @@ public class RateLimitingConfigurationTests
     public void PartitionKey_WithoutAnAddress_UsesOneSharedKey()
     {
         Assert.Equal("unknown", RateLimitingConfiguration.PartitionKey(null));
+    }
+
+    [Fact]
+    public void GlobalLimiter_CapsConcurrentPasswordHashingOnly()
+    {
+        var limiter = new ServiceCollection()
+            .AddApiRateLimiting()
+            .BuildServiceProvider()
+            .GetRequiredService<IOptions<RateLimiterOptions>>()
+            .Value.GlobalLimiter!;
+        var hashing = ContextFor(new RateLimitingConfiguration.PasswordHashingEndpoint());
+
+        var held = Enumerable.Range(0, RateLimitingConfiguration.PasswordHashingConcurrency)
+            .Select(_ => limiter.AttemptAcquire(hashing))
+            .ToList();
+
+        Assert.All(held, lease => Assert.True(lease.IsAcquired));
+        Assert.False(limiter.AttemptAcquire(hashing).IsAcquired);
+        Assert.True(limiter.AttemptAcquire(ContextFor()).IsAcquired);
+    }
+
+    private static HttpContext ContextFor(params object[] metadata)
+    {
+        var context = new DefaultHttpContext();
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(metadata), "test"));
+        return context;
     }
 }

@@ -1,3 +1,4 @@
+using TrailCompanion.Api.Common.Configuration.DependencyInjection;
 using TrailCompanion.Application.Modules.Users.Commands;
 using TrailCompanion.Application.Modules.Users.Dtos;
 using MediatR;
@@ -29,6 +30,9 @@ internal sealed class RegisterUserEndpoint : IEndpoint
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .RequireRateLimiting(RateLimitingConfiguration.RegisterPolicyName)
+            .WithMetadata(new RateLimitingConfiguration.PasswordHashingEndpoint())
             .AllowAnonymous();
     }
 }

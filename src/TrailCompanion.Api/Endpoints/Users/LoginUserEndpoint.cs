@@ -33,6 +33,7 @@ internal sealed class LoginUserEndpoint : IEndpoint
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .RequireRateLimiting(RateLimitingConfiguration.LoginPolicyName)
+            .WithMetadata(new RateLimitingConfiguration.PasswordHashingEndpoint())
             .AllowAnonymous();
     }
 }
