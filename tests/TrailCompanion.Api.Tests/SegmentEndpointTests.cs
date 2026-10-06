@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using TrailCompanion.Api.Endpoints;
 using TrailCompanion.Application.Modules.Users.Dtos;
 using TrailCompanion.Infrastructure.IntegrationTests;
@@ -87,6 +88,22 @@ public class SegmentEndpointTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
+    public async Task CreateSegment_SendsAndReturnsEndKmOnTheWire()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        await SignIn(client);
+        var race = await CreateRace(client);
+
+        var response = await client.PostAsJsonAsync(CreateRoute(race.Id), new { name = "Start to Aid 1", duration = 90, endKm = 20.1 });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(20.1, json.RootElement.GetProperty("endKm").GetDouble());
+        Assert.False(json.RootElement.TryGetProperty("distance", out _));
+    }
+
+    [Fact]
     public async Task UpdateSegment_ReplacesFieldsAndKeepsPosition()
     {
         using var factory = CreateFactory();
@@ -101,7 +118,7 @@ public class SegmentEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var updated = await response.Content.ReadFromJsonAsync<SegmentDto>();
         Assert.Equal("New", updated!.Name);
         Assert.Equal(45, updated.Duration);
-        Assert.Equal(7.5, updated.Distance);
+        Assert.Equal(7.5, updated.EndKm);
         Assert.Equal("Notes", updated.Notes);
         Assert.Equal(segment.Position, updated.Position);
     }

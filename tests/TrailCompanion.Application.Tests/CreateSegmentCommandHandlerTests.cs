@@ -35,7 +35,7 @@ public class CreateSegmentCommandHandlerTests
         Assert.Equal(1, result.Position);
         Assert.Equal("Start to Aid 1", result.Name);
         Assert.Equal(90, result.Duration);
-        Assert.Equal(11.5, result.Distance);
+        Assert.Equal(11.5, result.EndKm);
         Assert.Equal("Easy", result.Notes);
         await _segments.Received(1).AddAsync(Arg.Is<Segments>(s => s!.RaceId == _raceId), Arg.Any<CancellationToken>());
         await _segments.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -54,7 +54,7 @@ public class CreateSegmentCommandHandlerTests
 
         Assert.Equal(5, result.Position);
         Assert.Equal(0, result.Duration);
-        Assert.Null(result.Distance);
+        Assert.Null(result.EndKm);
         Assert.Equal(string.Empty, result.Notes);
     }
 
@@ -75,12 +75,12 @@ public class CreateSegmentCommandHandlerTests
     [InlineData("   ", 10, null)]
     [InlineData("A", -1, null)]
     [InlineData("A", 10, -0.5)]
-    public async Task Handle_WithInvalidInput_ThrowsValidationFailed(string? name, int duration, double? distance)
+    public async Task Handle_WithInvalidInput_ThrowsValidationFailed(string? name, int duration, double? endKm)
     {
         GivenOwnedRace();
 
         await Assert.ThrowsAsync<ValidationFailedException>(() => CreateHandler().Handle(
-            new CreateSegmentCommand(_appUserId, _raceId, new SegmentRequest(name, duration, distance, null)),
+            new CreateSegmentCommand(_appUserId, _raceId, new SegmentRequest(name, duration, endKm, null)),
             CancellationToken.None));
 
         await _segments.DidNotReceive().AddAsync(Arg.Any<Segments>(), Arg.Any<CancellationToken>());

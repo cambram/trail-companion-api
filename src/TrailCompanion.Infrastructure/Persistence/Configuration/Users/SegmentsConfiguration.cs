@@ -11,7 +11,7 @@ public class SegmentsConfiguration : IEntityTypeConfiguration<Segments>
         builder.ToTable("Segments", table =>
         {
             table.HasCheckConstraint("CK_Segments_Duration", "\"Duration\" >= 0");
-            table.HasCheckConstraint("CK_Segments_Distance", "\"Distance\" IS NULL OR \"Distance\" >= 0");
+            table.HasCheckConstraint("CK_Segments_EndKm", "\"EndKm\" IS NULL OR \"EndKm\" >= 0");
         });
 
         builder.HasKey(s => s.Id);

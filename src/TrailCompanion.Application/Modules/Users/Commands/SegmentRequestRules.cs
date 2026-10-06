@@ -24,9 +24,9 @@ internal static class SegmentRequestRules
             failures.Add(new ValidationFailure("InvalidDuration", "Duration must not be negative."));
         }
 
-        if (request.Distance < 0)
+        if (request.EndKm < 0)
         {
-            failures.Add(new ValidationFailure("InvalidDistance", "Distance must not be negative."));
+            failures.Add(new ValidationFailure("InvalidEndKm", "End km must not be negative."));
         }
 
         if (request.Notes?.Length > MaxNotesLength)

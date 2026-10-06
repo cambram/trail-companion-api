@@ -22,7 +22,7 @@ public record SegmentDetailDto(
     int Position,
     string Name,
     int Duration,
-    double? Distance,
+    double? EndKm,
     string Notes,
     IReadOnlyList<ItemDto> Items,
     AidStationDetailDto? AidStation)
@@ -35,7 +35,7 @@ public record SegmentDetailDto(
         segment.Position,
         segment.Name,
         segment.Duration,
-        segment.Distance,
+        segment.EndKm,
         segment.Notes,
         items,
         aidStation);

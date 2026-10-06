@@ -45,7 +45,7 @@ internal sealed class CreateSegmentCommandHandler : IRequestHandler<CreateSegmen
             Position = existing.Count == 0 ? 1 : existing.Max(s => s.Position) + 1,
             Name = command.Request.Name!.Trim(),
             Duration = command.Request.Duration ?? 0,
-            Distance = command.Request.Distance,
+            EndKm = command.Request.EndKm,
             Notes = command.Request.Notes ?? string.Empty
         };
 

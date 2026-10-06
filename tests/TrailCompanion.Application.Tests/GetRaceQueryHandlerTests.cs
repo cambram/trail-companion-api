@@ -37,7 +37,7 @@ public class GetRaceQueryHandlerTests
     [Fact]
     public async Task Handle_GroupsItemsUnderTheirSegmentsInOrderWithLibraryMacros()
     {
-        var first = new Segments { Id = Guid.NewGuid(), RaceId = _race.Id, Position = 1, Name = "A", Duration = 90, Distance = 11, Notes = "n" };
+        var first = new Segments { Id = Guid.NewGuid(), RaceId = _race.Id, Position = 1, Name = "A", Duration = 90, EndKm = 11, Notes = "n" };
         var second = new Segments { Id = Guid.NewGuid(), RaceId = _race.Id, Position = 2, Name = "B" };
         var gel = Nutrition("Gel", 40);
         var chew = Nutrition("Chew", 30);
@@ -59,7 +59,7 @@ public class GetRaceQueryHandlerTests
             s =>
             {
                 Assert.Equal(first.Id, s.Id);
-                Assert.Equal(11, s.Distance);
+                Assert.Equal(11, s.EndKm);
                 Assert.Equal(["Gel", "Chew"], s.Items.Select(i => i.Name));
                 Assert.Equal([40, 30], s.Items.Select(i => i.Carbs));
             },

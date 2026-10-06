@@ -40,7 +40,7 @@ internal sealed class UpdateSegmentCommandHandler : IRequestHandler<UpdateSegmen
 
         segment.Name = command.Request.Name!.Trim();
         segment.Duration = command.Request.Duration ?? 0;
-        segment.Distance = command.Request.Distance;
+        segment.EndKm = command.Request.EndKm;
         segment.Notes = command.Request.Notes ?? string.Empty;
 
         await _segmentsRepository.SaveChangesAsync(cancellationToken);

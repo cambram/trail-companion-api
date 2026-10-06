@@ -337,13 +337,13 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<double?>("Distance")
-                        .HasColumnType("double precision");
-
                     b.Property<int>("Duration")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
+
+                    b.Property<double?>("EndKm")
+                        .HasColumnType("double precision");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -372,9 +372,9 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Segments", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Segments_Distance", "\"Distance\" IS NULL OR \"Distance\" >= 0");
-
                             t.HasCheckConstraint("CK_Segments_Duration", "\"Duration\" >= 0");
+
+                            t.HasCheckConstraint("CK_Segments_EndKm", "\"EndKm\" IS NULL OR \"EndKm\" >= 0");
                         });
                 });
 

@@ -24,7 +24,7 @@ public class UpdateSegmentCommandHandlerTests
             Position = 3,
             Name = "Old",
             Duration = 10,
-            Distance = 1,
+            EndKm = 1,
             Notes = "old notes"
         };
         _segments.GetByIdAsync(_appUserId, _raceId, segment.Id, Arg.Any<CancellationToken>()).Returns(segment);
@@ -42,7 +42,7 @@ public class UpdateSegmentCommandHandlerTests
 
         Assert.Equal("New", result.Name);
         Assert.Equal(45, result.Duration);
-        Assert.Null(result.Distance);
+        Assert.Null(result.EndKm);
         Assert.Equal(string.Empty, result.Notes);
         Assert.Equal(3, result.Position);
         await _segments.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());

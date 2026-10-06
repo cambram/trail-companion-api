@@ -58,7 +58,7 @@ public class GetRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
             s =>
             {
                 Assert.Equal("Start to Aid 1", s.Name);
-                Assert.Equal(11, s.Distance);
+                Assert.Equal(11, s.EndKm);
                 Assert.Equal(["Gel", "Chew"], s.Items.Select(i => i.Name));
             },
             s =>
