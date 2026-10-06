@@ -137,7 +137,7 @@ public class AidStationRepositoryTests : IClassFixture<PostgresDatabaseFixture>
 
     private async Task<(Guid AppUserId, Guid RaceId, List<Segments> Segments)> SeedRace(int segmentCount)
     {
-        var appUser = new AppUser { Email = $"{Guid.NewGuid():N}@example.com", PasswordHash = "hash" };
+        var appUser = new AppUser { Username = Guid.NewGuid().ToString("N"), PasswordHash = "hash" };
         await using var context = _fixture.CreateContext();
         context.Add(appUser);
         await context.SaveChangesAsync();

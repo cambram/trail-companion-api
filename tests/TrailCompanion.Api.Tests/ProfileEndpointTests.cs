@@ -74,7 +74,7 @@ public class ProfileEndpointTests : IClassFixture<PostgresDatabaseFixture>
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
-        var email = await SignIn(client);
+        var username = await SignIn(client);
 
         var wrong = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.ChangePassword), new ChangePasswordRequest("wrong password", NewPassword));
         var weak = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.ChangePassword), new ChangePasswordRequest(Password, "short"));
@@ -84,8 +84,8 @@ public class ProfileEndpointTests : IClassFixture<PostgresDatabaseFixture>
         Assert.Equal(HttpStatusCode.BadRequest, weak.StatusCode);
         Assert.Contains("PasswordTooShort", await weak.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.NoContent, change.StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await Login(client, email, Password)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await Login(client, email, NewPassword)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Login(client, username, Password)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Login(client, username, NewPassword)).StatusCode);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public class ProfileEndpointTests : IClassFixture<PostgresDatabaseFixture>
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
-        var email = await SignIn(client);
+        var username = await SignIn(client);
         var raceId = await CreateRaceWithSegmentAndItem(client);
         var me = await client.GetFromJsonAsync<AppUserDto>(Route(ApiEndpoints.Users.GetMyUser));
 
@@ -102,7 +102,7 @@ public class ProfileEndpointTests : IClassFixture<PostgresDatabaseFixture>
 
         Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await Login(client, email, Password)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Login(client, username, Password)).StatusCode);
 
         await using var context = _fixture.CreateContext();
         Assert.False(await context.AppUsers.AnyAsync(u => u.Id == me!.Id));
@@ -123,7 +123,7 @@ public class ProfileEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var me = await client.GetFromJsonAsync<AppUserDto>(Route(ApiEndpoints.Users.GetMyUser));
         var nutrition = await (await client.PostAsJsonAsync(
                 Route(ApiEndpoints.Users.CreateNutritionItem),
-                new NutritionItemRequest(me!.Email, NutritionType.Gel, null, 40, null, null, null, null, null, null),
+                new NutritionItemRequest(me!.Username, NutritionType.Gel, null, 40, null, null, null, null, null, null),
                 TestJson.Options))
             .Content.ReadFromJsonAsync<NutritionItemDto>(TestJson.Options);
         var item = await client.PostAsJsonAsync(
@@ -142,16 +142,16 @@ public class ProfileEndpointTests : IClassFixture<PostgresDatabaseFixture>
             Content = JsonContent.Create(new DeleteAccountRequest(password))
         };
 
-    private static Task<HttpResponseMessage> Login(HttpClient client, string email, string password) =>
-        client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(email, password));
+    private static Task<HttpResponseMessage> Login(HttpClient client, string username, string password) =>
+        client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(username, password));
 
     private static async Task<string> SignIn(HttpClient client)
     {
-        var email = $"{Guid.NewGuid():N}@example.com";
-        await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(email, Password));
-        var token = await (await Login(client, email, Password)).Content.ReadFromJsonAsync<AccessTokenDto>();
+        var username = Guid.NewGuid().ToString("N");
+        await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(username, Password));
+        var token = await (await Login(client, username, Password)).Content.ReadFromJsonAsync<AccessTokenDto>();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token!.AccessToken);
-        return email;
+        return username;
     }
 
     private WebApplicationFactory<Program> CreateFactory() =>

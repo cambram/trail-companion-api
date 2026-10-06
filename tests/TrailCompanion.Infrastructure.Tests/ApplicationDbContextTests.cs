@@ -5,12 +5,12 @@ namespace TrailCompanion.Infrastructure.Tests;
 public class ApplicationDbContextTests
 {
     [Fact]
-    public void AppUser_Email_HasUniqueIndex()
+    public void AppUser_Username_HasUniqueIndex()
     {
         using var context = TestDbContext.Create();
 
         var index = context.Model.FindEntityType(typeof(AppUser))!.GetIndexes()
-            .Single(i => i.Properties.Any(p => p.Name == nameof(AppUser.Email)));
+            .Single(i => i.Properties.Any(p => p.Name == nameof(AppUser.Username)));
 
         Assert.True(index.IsUnique);
     }
@@ -21,7 +21,7 @@ public class ApplicationDbContextTests
         using var context = TestDbContext.Create();
         var before = DateTime.UtcNow;
 
-        var user = new AppUser { Email = "insert@example.com", PasswordHash = "hash" };
+        var user = new AppUser { Username = "insert", PasswordHash = "hash" };
         context.AppUsers.Add(user);
         await context.SaveChangesAsync();
 
@@ -35,7 +35,7 @@ public class ApplicationDbContextTests
     {
         using var context = TestDbContext.Create();
 
-        var user = new AppUser { Email = "update@example.com", PasswordHash = "hash" };
+        var user = new AppUser { Username = "update", PasswordHash = "hash" };
         context.AppUsers.Add(user);
         await context.SaveChangesAsync();
 

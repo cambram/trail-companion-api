@@ -16,7 +16,7 @@ public class GetCurrentAppUserQueryHandlerTests
     public async Task Handle_WhenTheRecordExists_ReturnsIt()
     {
         var appUserId = Guid.NewGuid();
-        var stored = new AppUser { Id = appUserId, Email = "user@example.com" };
+        var stored = new AppUser { Id = appUserId, Username = "runner" };
 
         _repository.GetByIdAsync(appUserId, Arg.Any<CancellationToken>()).Returns(stored);
 
@@ -24,7 +24,7 @@ public class GetCurrentAppUserQueryHandlerTests
             new GetCurrentAppUserQuery(appUserId), CancellationToken.None);
 
         Assert.Equal(appUserId, result.Id);
-        Assert.Equal("user@example.com", result.Email);
+        Assert.Equal("runner", result.Username);
     }
 
     [Fact]

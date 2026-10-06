@@ -15,32 +15,32 @@ public class AppUserRepositoryTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
-    public async Task SaveChangesAsync_WithADuplicateEmail_ThrowsConflict()
+    public async Task SaveChangesAsync_WithADuplicateUsername_ThrowsConflict()
     {
-        const string email = "duplicate@example.com";
+        var username = Guid.NewGuid().ToString("N");
 
         await using (var context = _fixture.CreateContext())
         {
             var repository = new AppUserRepository(context);
-            await repository.AddAsync(new AppUser { Email = email, PasswordHash = "hash" });
+            await repository.AddAsync(new AppUser { Username = username, PasswordHash = "hash" });
             await repository.SaveChangesAsync();
         }
 
         await using (var context = _fixture.CreateContext())
         {
             var repository = new AppUserRepository(context);
-            await repository.AddAsync(new AppUser { Email = email, PasswordHash = "hash" });
+            await repository.AddAsync(new AppUser { Username = username, PasswordHash = "hash" });
 
             var exception = await Assert.ThrowsAsync<ConflictException>(() => repository.SaveChangesAsync());
 
-            Assert.Equal("DuplicateEmail", exception.Code);
+            Assert.Equal("DuplicateUsername", exception.Code);
         }
     }
 
     [Fact]
-    public async Task GetByEmailAsync_ReturnsTheStoredUser()
+    public async Task GetByUsernameAsync_ReturnsTheStoredUser()
     {
-        var appUser = new AppUser { Email = $"{Guid.NewGuid():N}@example.com", PasswordHash = "hash" };
+        var appUser = new AppUser { Username = Guid.NewGuid().ToString("N"), PasswordHash = "hash" };
 
         await using (var context = _fixture.CreateContext())
         {
@@ -51,7 +51,7 @@ public class AppUserRepositoryTests : IClassFixture<PostgresDatabaseFixture>
 
         await using (var context = _fixture.CreateContext())
         {
-            var stored = await new AppUserRepository(context).GetByEmailAsync(appUser.Email);
+            var stored = await new AppUserRepository(context).GetByUsernameAsync(appUser.Username);
 
             Assert.NotNull(stored);
             Assert.Equal(appUser.Id, stored.Id);

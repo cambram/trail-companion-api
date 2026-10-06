@@ -24,7 +24,7 @@ internal sealed class RegisterUserEndpoint : IEndpoint
                 })
             .WithName(Name)
             .WithTags(Modules.Users)
-            .WithSummary("Creates an account from an email and password.")
+            .WithSummary("Creates an account from a username and password.")
             .Produces<AppUserDto>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)

@@ -63,7 +63,7 @@ public class SegmentEndKmMigrationTests : IClassFixture<PostgresDatabaseFixture>
     private async Task<(Guid First, Guid Second)> SeedTwoRaces()
     {
         await using var context = _fixture.CreateContext();
-        var appUser = new AppUser { Email = $"{Guid.NewGuid():N}@example.com", PasswordHash = "hash" };
+        var appUser = new AppUser { Username = Guid.NewGuid().ToString("N"), PasswordHash = "hash" };
         context.Add(appUser);
         await context.SaveChangesAsync();
         var first = new Races { AppUserId = appUser.Id, Name = "UTCT" };

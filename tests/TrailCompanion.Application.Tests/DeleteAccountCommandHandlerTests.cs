@@ -12,7 +12,7 @@ public class DeleteAccountCommandHandlerTests
 {
     private readonly IAppUserRepository _repository = Substitute.For<IAppUserRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
-    private readonly AppUser _appUser = new() { Id = Guid.NewGuid(), Email = "user@example.com", PasswordHash = "stored" };
+    private readonly AppUser _appUser = new() { Id = Guid.NewGuid(), Username = "runner", PasswordHash = "stored" };
 
     public DeleteAccountCommandHandlerTests()
     {

@@ -14,7 +14,7 @@ public class ChangePasswordCommandHandlerTests
     private readonly IRefreshTokensRepository _refreshTokensRepository = Substitute.For<IRefreshTokensRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly IRefreshTokenIssuer _refreshTokenIssuer = Substitute.For<IRefreshTokenIssuer>();
-    private readonly AppUser _appUser = new() { Id = Guid.NewGuid(), Email = "user@example.com", PasswordHash = "stored" };
+    private readonly AppUser _appUser = new() { Id = Guid.NewGuid(), Username = "runner", PasswordHash = "stored" };
 
     public ChangePasswordCommandHandlerTests()
     {

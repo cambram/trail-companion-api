@@ -7,8 +7,8 @@ internal static class UniqueConstraintConflicts
     private static readonly FrozenDictionary<string, (string Code, string Message)> ByConstraintName =
         new Dictionary<string, (string Code, string Message)>
         {
-            ["IX_AppUsers_Email"] =
-                ("DuplicateEmail", "An account with this email already exists."),
+            ["IX_AppUsers_Username"] =
+                ("DuplicateUsername", "That username is taken."),
             ["IX_NutritionItems_AppUserId_Name"] =
                 ("DuplicateNutritionItem", "You already have a nutrition item with this name."),
             ["UQ_AidStations_SegmentId"] =

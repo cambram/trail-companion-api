@@ -4,7 +4,7 @@ namespace TrailCompanion.Domain.Modules.Users.Repositories;
 
 public interface IAppUserRepository
 {
-    Task<AppUser?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
+    Task<AppUser?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default);
     Task<AppUser?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task AddAsync(AppUser appUser, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);

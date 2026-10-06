@@ -5,7 +5,7 @@ How auth works in TrailCompanion API. Part 1 is for anyone working on the API. P
 ## TL;DR
 
 - Self-issued JWT bearer tokens. No ASP.NET Core Identity, no OAuth provider.
-- Register with email + password, log in to get an access token, send it as `Authorization: Bearer <token>`.
+- Register with username + password, log in to get an access token, send it as `Authorization: Bearer <token>`.
 - Access token lives 15 minutes. Login also sets a 30-day refresh token in an `HttpOnly` cookie; `POST /api/users/refresh` swaps it for a new access token and a rotated cookie.
 - The token carries one claim that matters: `sub` = the user's `AppUser.Id` (GUID).
 - Every endpoint except register, login, refresh and logout requires a valid token.
@@ -50,13 +50,13 @@ All `{id}` style route params are constrained to GUIDs.
 Request:
 
 ```json
-{ "email": "runner@example.com", "password": "at-least-8-chars" }
+{ "username": "runner", "password": "at-least-8-chars" }
 ```
 
 Success: `201 Created`, `Location: api/users/me`, body:
 
 ```json
-{ "id": "3f2c...guid", "email": "runner@example.com", "firstName": null, "lastName": null, "createdAtUtc": "2026-09-19T12:00:00Z" }
+{ "id": "3f2c...guid", "username": "runner", "firstName": null, "lastName": null, "createdAtUtc": "2026-09-19T12:00:00Z" }
 ```
 
 Registering does **not** log the user in and returns no token. The client must call login next.
@@ -65,19 +65,19 @@ Validation (all failures reported together):
 
 | Code | Rule |
 |---|---|
-| `InvalidEmail` | Empty after trimming, longer than 320 chars, or no `@` |
+| `InvalidUsername` | After trimming and lowercasing, not 3 to 32 characters from a-z, 0-9, _, . or - |
 | `PasswordTooShort` | Fewer than 8 characters |
 
 Password rules live in one shared class, `Application/Modules/Users/PasswordRules.cs`, used by register and change password.
 
-Errors: `400` validation, `409` email already registered.
+Errors: `400` validation, `409` username already taken (`DuplicateUsername`, "That username is taken.").
 
 ### `POST /api/users/login`
 
 Request:
 
 ```json
-{ "email": "runner@example.com", "password": "at-least-8-chars" }
+{ "username": "runner", "password": "at-least-8-chars" }
 ```
 
 Success: `200 OK`:
@@ -88,7 +88,7 @@ Success: `200 OK`:
 
 Errors:
 
-- `401` for unknown email **and** wrong password. Same status and same message (`Invalid email or password.`) for both, so callers cannot probe which emails exist.
+- `401` for unknown username **and** wrong password. Same status and same message (`Invalid username or password.`) for both, so callers cannot probe which usernames exist. Login does not check the username format.
 - `429` after 5 attempts per minute from one IP.
 
 On success the response also carries `Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=None; Path=/api/users; Expires=...`.
@@ -105,11 +105,11 @@ No body, no bearer (it must work after the access token expired). Revokes the pr
 
 ### `GET /api/users/me`
 
-Requires bearer token. Returns `{ id, email, firstName, lastName, createdAtUtc }`; names are `null` when unset. Useful for the client to confirm a stored token is still valid and to load the user profile.
+Requires bearer token. Returns `{ id, username, firstName, lastName, createdAtUtc }`; names are `null` when unset. Useful for the client to confirm a stored token is still valid and to load the user profile.
 
 ### `PUT /api/users/me`
 
-Body `{ "firstName": "...", "lastName": "..." }`. Both are trimmed; empty or whitespace-only is stored as `null`, so sending `null` or `""` clears a name. Max 100 characters each (`FirstNameTooLong`, `LastNameTooLong`). The email cannot be changed here. Returns the updated `AppUserDto`.
+Body `{ "firstName": "...", "lastName": "..." }`. Both are trimmed; empty or whitespace-only is stored as `null`, so sending `null` or `""` clears a name. Max 100 characters each (`FirstNameTooLong`, `LastNameTooLong`). The username cannot be changed here. Returns the updated `AppUserDto`.
 
 ### `POST /api/users/password`
 
@@ -137,7 +137,7 @@ Issued by `JwtAccessTokenIssuer` (`src/TrailCompanion.Infrastructure/Authenticat
 | `iss` | `Jwt:Issuer`, default `trailcompanion-api` |
 | `aud` | `Jwt:Audience`, default `trailcompanion-api` |
 | `exp` | now + `Jwt:AccessTokenLifetimeMinutes`, default 15 |
-| Other claims | None. No roles, no email, no personal data. Never add secrets or personal data. |
+| Other claims | None. No roles, no username, no personal data. Never add secrets or personal data. |
 
 Validation (`AuthenticationConfiguration` in Api): signature, expiry, issuer, audience. Only HS256 is accepted. Clock skew tolerance is 30 seconds. `MapInboundClaims = false`, so the claim stays named `sub` instead of being remapped to a long .NET claim URI.
 
@@ -197,13 +197,14 @@ The value is read when the request arrives, from configuration loaded at startup
 - PBKDF2-HMAC-SHA256, 600,000 iterations, 16-byte random salt, 32-byte hash.
 - Stored in `AppUsers.PasswordHash` as `iterations.salt.hash` (base64 salt and hash). Iteration count is stored per row, so it can be raised later and old hashes still verify.
 - Comparison uses `CryptographicOperations.FixedTimeEquals`.
-- `Verify(password, null)` still burns a full hash against a dummy value. Login therefore takes about the same time whether or not the email exists (no timing side channel). Keep this behavior when touching login.
+- `Verify(password, null)` still burns a full hash against a dummy value. Login therefore takes about the same time whether or not the username exists (no timing side channel). Keep this behavior when touching login.
 
-## Email rules
+## Username rules
 
-- `UserEmail.Normalize` trims and lowercases. It is applied on register **and** login.
-- Uniqueness is enforced by a unique index on `AppUsers.Email`, not by a pre-check. `Repository.SaveChangesAsync` translates the violation into `ConflictException` via `UniqueConstraintConflicts`, giving a `409`.
-- Note: register returns `409` for an existing email, so registration does reveal whether an email is taken. Login does not.
+- `UserName.Normalize` trims and lowercases. It is applied on register **and** login, so usernames are case-insensitive.
+- Register also requires `UserName.IsValid`: 3 to 32 characters from a-z, 0-9, `_`, `.` and `-`. Login skips this check, so a stored username outside the rules (the account migrated from an email) still logs in.
+- Uniqueness is enforced by a unique index on `AppUsers.Username` (`IX_AppUsers_Username`), not by a pre-check. `Repository.SaveChangesAsync` translates the violation into `ConflictException` via `UniqueConstraintConflicts`, giving a `409`.
+- Note: register returns `409` for an existing username, so registration does reveal whether a username is taken. Login does not.
 
 ## Request pipeline
 
@@ -321,9 +322,10 @@ Every request gets a correlation id. Inbound `X-Correlation-Id` is accepted if i
 - Access tokens cannot be revoked. A leaked access token is valid until `exp` (at most 15 minutes), even after logout, password change or account deletion.
 - Expired and revoked refresh-token rows are never deleted.
 - Two truly simultaneous refreshes with the same cookie (for example two tabs at the same millisecond) look like reuse and log the user out everywhere.
-- No password reset, email verification, or account lockout (only the per-IP login rate limit).
+- No email is stored. There is no password reset: a forgotten password is fixed in the database. No account lockout (only the per-IP login rate limit).
+- Usernames cannot be changed.
 - No roles or scopes.
-- Register is unthrottled and reveals whether an email is taken (409).
+- Register is unthrottled and reveals whether a username is taken (409).
 
 ---
 
@@ -332,7 +334,7 @@ Every request gets a correlation id. Inbound `X-Correlation-Id` is accepted if i
 ## Flow
 
 ```
-Register (once)   POST /api/users/register  -> 201 { id, email, firstName, lastName, createdAtUtc }
+Register (once)   POST /api/users/register  -> 201 { id, username, firstName, lastName, createdAtUtc }
 Login             POST /api/users/login     -> 200 { accessToken, expiresAtUtc } + refresh cookie
 Every request     Authorization: Bearer <accessToken>
 Before expiry     POST /api/users/refresh   -> 200 { accessToken, expiresAtUtc } + rotated cookie
@@ -363,7 +365,7 @@ The API allows only origins listed in `Cors:AllowedOrigins`. In Development that
 - The refresh token lives only in the `HttpOnly` cookie. JavaScript cannot read it and must never try to store it.
 - Compare `expiresAtUtc` with a small margin (the server allows 30 s skew, do not rely on it) and treat the session as ended slightly before expiry.
 - Storage tradeoff: `localStorage` survives reloads but is readable by any script on the page (XSS). In-memory is safer; with the refresh cookie a reload just costs one refresh call. Never put the token in a URL.
-- The token is a JWT; the client may decode the payload for `sub` or `exp` but must not trust or rely on it for anything the API does not verify. There is no email or role in it. Call `GET /api/users/me` for profile data.
+- The token is a JWT; the client may decode the payload for `sub` or `exp` but must not trust or rely on it for anything the API does not verify. There is no username or role in it. Call `GET /api/users/me` for profile data.
 - Logout: call `POST /api/users/logout`, then delete the stored access token.
 
 ## Handling responses
@@ -372,12 +374,12 @@ The API allows only origins listed in `Cors:AllowedOrigins`. In Development that
 |---|---|---|---|
 | 200 / 201 | Success | JSON | Proceed |
 | 400 | Validation failed | ProblemDetails, `validationErrors[]` | Show per-field messages by `code` |
-| 401 on login | Bad email or password | ProblemDetails | Show a generic "Invalid email or password" |
+| 401 on login | Bad username or password | ProblemDetails | Show a generic "Invalid username or password" |
 | 401 on other routes | Missing, expired or invalid token | **Empty** | Refresh once and retry; if refresh fails, clear token and redirect to login |
 | 401 on password change or delete account | Wrong current password | ProblemDetails | Show inline error, do not log out |
 | 403 on register | Account creation is closed (`FEATURE_REGISTRATION_ENABLED`) | ProblemDetails | Show "Account creation is currently closed", offer login |
 | 404 | Not found, **or owned by another user** | ProblemDetails | Treat as missing |
-| 409 | Email already registered (register) | ProblemDetails with `validationErrors` | Tell user, offer login |
+| 409 | Username already taken (register) | ProblemDetails with `validationErrors` | Tell user, offer login |
 | 429 | Login rate limit hit | **Empty** | Show "try again in a minute" |
 | 500 | Server error | ProblemDetails | Show generic error, log `correlationId` |
 
@@ -385,7 +387,7 @@ Because 401 and 429 can have empty bodies, check `response.status` first and par
 
 Validation error codes to map to UI messages:
 
-- `InvalidEmail`
+- `InvalidUsername`
 - `PasswordTooShort` (min 8 characters)
 - `PasswordUnchanged`
 - `FirstNameTooLong`, `LastNameTooLong` (max 100 characters)
@@ -401,13 +403,13 @@ Optionally send `X-Correlation-Id` (letters, digits, `-`, `_`, `.`, max 64 chars
 ```ts
 const API = "http://localhost:5170";
 
-async function login(email: string, password: string) {
+async function login(username: string, password: string) {
   const res = await fetch(`${API}/api/users/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, password }),
   });
-  if (res.status === 401) throw new Error("Invalid email or password");
+  if (res.status === 401) throw new Error("Invalid username or password");
   if (res.status === 429) throw new Error("Too many attempts, wait a minute");
   if (!res.ok) throw new Error("Login failed");
   return (await res.json()) as { accessToken: string; expiresAtUtc: string };

@@ -30,7 +30,7 @@ internal sealed class UpdateMyUserEndpoint : IEndpoint
                 })
             .WithName(Name)
             .WithTags(Modules.Users)
-            .WithSummary("Sets or clears the authenticated caller's first and last name. The email cannot be changed.")
+            .WithSummary("Sets or clears the authenticated caller's first and last name. The username cannot be changed.")
             .Produces<AppUserDto>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)

@@ -21,16 +21,16 @@ public class LoginUserCommandHandlerTests
     [Fact]
     public async Task Handle_WithCorrectPassword_IssuesATokenForThatUser()
     {
-        var appUser = new AppUser { Id = Guid.NewGuid(), Email = "user@example.com", PasswordHash = "stored" };
+        var appUser = new AppUser { Id = Guid.NewGuid(), Username = "runner", PasswordHash = "stored" };
         var expiresAtUtc = DateTime.UtcNow.AddMinutes(15);
 
-        _repository.GetByEmailAsync("user@example.com", Arg.Any<CancellationToken>()).Returns(appUser);
+        _repository.GetByUsernameAsync("runner", Arg.Any<CancellationToken>()).Returns(appUser);
         _passwordHasher.Verify("password", "stored").Returns(true);
         _accessTokenIssuer.Issue(appUser.Id).Returns(new AccessToken("token", expiresAtUtc));
         _refreshTokenIssuer.Issue().Returns(new IssuedRefreshToken("refresh", "hash", expiresAtUtc.AddDays(30)));
 
         var result = await CreateHandler().Handle(
-            new LoginUserCommand(new LoginUserRequest(" USER@example.com", "password")),
+            new LoginUserCommand(new LoginUserRequest(" RUNNER", "password")),
             CancellationToken.None);
 
         Assert.Equal("token", result.AccessToken.AccessToken);
@@ -42,31 +42,50 @@ public class LoginUserCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WithUsernameOutsideTheRules_StillLogsIn()
+    {
+        var appUser = new AppUser { Id = Guid.NewGuid(), Username = "first+tag", PasswordHash = "stored" };
+
+        _repository.GetByUsernameAsync("first+tag", Arg.Any<CancellationToken>()).Returns(appUser);
+        _passwordHasher.Verify("password", "stored").Returns(true);
+        _accessTokenIssuer.Issue(appUser.Id).Returns(new AccessToken("token", DateTime.UtcNow.AddMinutes(15)));
+        _refreshTokenIssuer.Issue().Returns(new IssuedRefreshToken("refresh", "hash", DateTime.UtcNow.AddDays(30)));
+
+        var result = await CreateHandler().Handle(
+            new LoginUserCommand(new LoginUserRequest("First+Tag", "password")),
+            CancellationToken.None);
+
+        Assert.Equal("token", result.AccessToken.AccessToken);
+    }
+
+    [Fact]
     public async Task Handle_WithWrongPassword_ThrowsUnauthorized()
     {
-        var appUser = new AppUser { Id = Guid.NewGuid(), Email = "user@example.com", PasswordHash = "stored" };
+        var appUser = new AppUser { Id = Guid.NewGuid(), Username = "runner", PasswordHash = "stored" };
 
-        _repository.GetByEmailAsync("user@example.com", Arg.Any<CancellationToken>()).Returns(appUser);
+        _repository.GetByUsernameAsync("runner", Arg.Any<CancellationToken>()).Returns(appUser);
         _passwordHasher.Verify("wrong", "stored").Returns(false);
 
-        await Assert.ThrowsAsync<UnauthorizedException>(
+        var exception = await Assert.ThrowsAsync<UnauthorizedException>(
             () => CreateHandler().Handle(
-                new LoginUserCommand(new LoginUserRequest("user@example.com", "wrong")),
+                new LoginUserCommand(new LoginUserRequest("runner", "wrong")),
                 CancellationToken.None));
 
+        Assert.Equal("Invalid username or password.", exception.Message);
         _accessTokenIssuer.DidNotReceive().Issue(Arg.Any<Guid>());
     }
 
     [Fact]
-    public async Task Handle_WithUnknownEmail_StillVerifiesAPasswordAndThrowsUnauthorized()
+    public async Task Handle_WithUnknownUsername_StillVerifiesAPasswordAndThrowsUnauthorized()
     {
-        _repository.GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((AppUser?)null);
+        _repository.GetByUsernameAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((AppUser?)null);
 
-        await Assert.ThrowsAsync<UnauthorizedException>(
+        var exception = await Assert.ThrowsAsync<UnauthorizedException>(
             () => CreateHandler().Handle(
-                new LoginUserCommand(new LoginUserRequest("nobody@example.com", "password")),
+                new LoginUserCommand(new LoginUserRequest("me@example.com", "password")),
                 CancellationToken.None));
 
+        Assert.Equal("Invalid username or password.", exception.Message);
         _passwordHasher.Received(1).Verify("password", null);
         _accessTokenIssuer.DidNotReceive().Issue(Arg.Any<Guid>());
     }

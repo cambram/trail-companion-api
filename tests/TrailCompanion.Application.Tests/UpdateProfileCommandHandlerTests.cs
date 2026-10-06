@@ -10,7 +10,7 @@ namespace TrailCompanion.Application.Tests;
 public class UpdateProfileCommandHandlerTests
 {
     private readonly IAppUserRepository _repository = Substitute.For<IAppUserRepository>();
-    private readonly AppUser _appUser = new() { Id = Guid.NewGuid(), Email = "user@example.com", FirstName = "Old", LastName = "Name" };
+    private readonly AppUser _appUser = new() { Id = Guid.NewGuid(), Username = "runner", FirstName = "Old", LastName = "Name" };
 
     public UpdateProfileCommandHandlerTests()
     {
@@ -29,7 +29,7 @@ public class UpdateProfileCommandHandlerTests
         Assert.Equal("Kilian", _appUser.FirstName);
         Assert.Null(_appUser.LastName);
         Assert.Equal("Kilian", result.FirstName);
-        Assert.Equal("user@example.com", result.Email);
+        Assert.Equal("runner", result.Username);
         await _repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

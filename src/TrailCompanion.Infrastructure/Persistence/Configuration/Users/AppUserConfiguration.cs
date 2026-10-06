@@ -12,11 +12,11 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
 
         builder.HasKey(u => u.Id);
 
-        builder.Property(u => u.Email)
+        builder.Property(u => u.Username)
             .IsRequired()
-            .HasMaxLength(320);
+            .HasMaxLength(32);
 
-        builder.HasIndex(u => u.Email)
+        builder.HasIndex(u => u.Username)
             .IsUnique();
 
         builder.Property(u => u.PasswordHash)

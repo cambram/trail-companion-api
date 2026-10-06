@@ -127,9 +127,9 @@ public class RefreshTokenFlowTests : IClassFixture<PostgresDatabaseFixture>
 
     private static async Task<HttpResponseMessage> RegisterAndLogin(HttpClient client)
     {
-        var email = $"{Guid.NewGuid():N}@example.com";
-        await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(email, Password));
-        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(email, Password));
+        var username = Guid.NewGuid().ToString("N");
+        await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(username, Password));
+        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(username, Password));
         login.EnsureSuccessStatusCode();
         return login;
     }

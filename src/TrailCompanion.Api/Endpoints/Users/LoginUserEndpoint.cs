@@ -28,7 +28,7 @@ internal sealed class LoginUserEndpoint : IEndpoint
                 })
             .WithName(Name)
             .WithTags(Modules.Users)
-            .WithSummary("Exchanges an email and password for a short-lived bearer token and sets the httpOnly refresh cookie.")
+            .WithSummary("Exchanges a username and password for a short-lived bearer token and sets the httpOnly refresh cookie.")
             .Produces<AccessTokenDto>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)

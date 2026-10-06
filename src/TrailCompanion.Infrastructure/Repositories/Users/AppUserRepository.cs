@@ -12,11 +12,11 @@ public class AppUserRepository : Repository, IAppUserRepository
     {
     }
 
-    public Task<AppUser?> GetByEmailAsync(
-        string email,
+    public Task<AppUser?> GetByUsernameAsync(
+        string username,
         CancellationToken cancellationToken = default) =>
         Context.AppUsers
-            .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
 
     public Task<AppUser?> GetByIdAsync(
         Guid id,

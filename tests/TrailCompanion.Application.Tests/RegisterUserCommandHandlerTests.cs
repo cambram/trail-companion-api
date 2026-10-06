@@ -29,36 +29,66 @@ public class RegisterUserCommandHandlerTests
             .Returns(new ValueTask<bool>(enabled));
 
     [Fact]
-    public async Task Handle_WithValidRequest_StoresNormalisedEmailAndHashedPassword()
+    public async Task Handle_WithValidRequest_StoresNormalisedUsernameAndHashedPassword()
     {
         _passwordHasher.Hash("correct horse battery").Returns("hashed");
 
         var result = await CreateHandler().Handle(
-            new RegisterUserCommand(new RegisterUserRequest("  User@Example.COM ", "correct horse battery")),
+            new RegisterUserCommand(new RegisterUserRequest("  Trail.Runner_1-X ", "correct horse battery")),
             CancellationToken.None);
 
         await _repository.Received(1).AddAsync(
-            Arg.Is<AppUser>(u => u != null && u.Email == "user@example.com" && u.PasswordHash == "hashed"),
+            Arg.Is<AppUser>(u => u != null && u.Username == "trail.runner_1-x" && u.PasswordHash == "hashed"),
             Arg.Any<CancellationToken>());
         await _repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        Assert.Equal("user@example.com", result.Email);
+        Assert.Equal("trail.runner_1-x", result.Username);
     }
 
     [Theory]
-    [InlineData(null, "correct horse battery", "InvalidEmail")]
-    [InlineData("not-an-email", "correct horse battery", "InvalidEmail")]
-    [InlineData("user@example.com", "short", "PasswordTooShort")]
-    [InlineData("user@example.com", null, "PasswordTooShort")]
+    [InlineData("abc")]
+    [InlineData("abcdefghijklmnopqrstuvwxyz012345")]
+    public async Task Handle_WithUsernameAtTheLengthLimits_Registers(string username)
+    {
+        await CreateHandler().Handle(
+            new RegisterUserCommand(new RegisterUserRequest(username, "correct horse battery")),
+            CancellationToken.None);
+
+        await _repository.Received(1).AddAsync(
+            Arg.Is<AppUser>(u => u != null && u.Username == username),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(null, "correct horse battery", "InvalidUsername")]
+    [InlineData("", "correct horse battery", "InvalidUsername")]
+    [InlineData("ab", "correct horse battery", "InvalidUsername")]
+    [InlineData("abcdefghijklmnopqrstuvwxyz0123456", "correct horse battery", "InvalidUsername")]
+    [InlineData("bad name", "correct horse battery", "InvalidUsername")]
+    [InlineData("bad@name", "correct horse battery", "InvalidUsername")]
+    [InlineData("runner", "short", "PasswordTooShort")]
+    [InlineData("runner", null, "PasswordTooShort")]
     public async Task Handle_WithInvalidRequest_ThrowsValidationFailedAndStoresNothing(
-        string? email, string? password, string expectedCode)
+        string? username, string? password, string expectedCode)
     {
         var exception = await Assert.ThrowsAsync<ValidationFailedException>(
             () => CreateHandler().Handle(
-                new RegisterUserCommand(new RegisterUserRequest(email, password)),
+                new RegisterUserCommand(new RegisterUserRequest(username, password)),
                 CancellationToken.None));
 
         Assert.Contains(exception.Failures, f => f.Code == expectedCode);
         await _repository.DidNotReceive().AddAsync(Arg.Any<AppUser>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WithBadUsernameAndBadPassword_ReportsBoth()
+    {
+        var exception = await Assert.ThrowsAsync<ValidationFailedException>(
+            () => CreateHandler().Handle(
+                new RegisterUserCommand(new RegisterUserRequest("ab", "short")),
+                CancellationToken.None));
+
+        Assert.Contains(exception.Failures, f => f.Code == "InvalidUsername");
+        Assert.Contains(exception.Failures, f => f.Code == "PasswordTooShort");
     }
 
     [Fact]
@@ -68,7 +98,7 @@ public class RegisterUserCommandHandlerTests
 
         var exception = await Assert.ThrowsAsync<ForbiddenException>(
             () => CreateHandler().Handle(
-                new RegisterUserCommand(new RegisterUserRequest("user@example.com", "correct horse battery")),
+                new RegisterUserCommand(new RegisterUserRequest("runner", "correct horse battery")),
                 CancellationToken.None));
 
         Assert.Equal("Account creation is currently closed.", exception.Message);
@@ -84,7 +114,7 @@ public class RegisterUserCommandHandlerTests
 
         await Assert.ThrowsAsync<ForbiddenException>(
             () => CreateHandler().Handle(
-                new RegisterUserCommand(new RegisterUserRequest("not-an-email", "short")),
+                new RegisterUserCommand(new RegisterUserRequest("ab", "short")),
                 CancellationToken.None));
     }
 }

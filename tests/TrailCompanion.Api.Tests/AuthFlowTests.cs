@@ -27,12 +27,12 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
-        var email = NewEmail();
+        var username = NewUsername();
 
-        var register = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(email, Password));
+        var register = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(username, Password));
         Assert.Equal(HttpStatusCode.Created, register.StatusCode);
 
-        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(email.ToUpperInvariant(), Password));
+        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(username.ToUpperInvariant(), Password));
         login.EnsureSuccessStatusCode();
         var token = await login.Content.ReadFromJsonAsync<AccessTokenDto>();
 
@@ -41,15 +41,15 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
         var me = await client.SendAsync(request);
 
         me.EnsureSuccessStatusCode();
-        Assert.Equal(email, (await me.Content.ReadFromJsonAsync<AppUserDto>())!.Email);
+        Assert.Equal(username, (await me.Content.ReadFromJsonAsync<AppUserDto>())!.Username);
     }
 
     [Fact]
-    public async Task Register_WithAnExistingEmail_Returns409()
+    public async Task Register_WithAnExistingUsername_Returns409()
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
-        var body = new RegisterUserRequest(NewEmail(), Password);
+        var body = new RegisterUserRequest(NewUsername(), Password);
 
         await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), body);
         var second = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), body);
@@ -62,7 +62,7 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
     {
         using var factory = CreateFactory(registrationEnabled: false);
         using var client = factory.CreateClient();
-        var body = new RegisterUserRequest(NewEmail(), Password);
+        var body = new RegisterUserRequest(NewUsername(), Password);
 
         var register = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), body);
 
@@ -72,25 +72,25 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
         Assert.Equal("Account creation is currently closed.", problem.RootElement.GetProperty("detail").GetString());
         Assert.False(string.IsNullOrEmpty(problem.RootElement.GetProperty("correlationId").GetString()));
 
-        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(body.Email, Password));
+        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(body.Username, Password));
         Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
     }
 
     [Fact]
     public async Task Login_WhenRegistrationDisabled_StillWorksForExistingUsers()
     {
-        var email = NewEmail();
+        var username = NewUsername();
         using (var openFactory = CreateFactory())
         using (var openClient = openFactory.CreateClient())
         {
-            var register = await openClient.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(email, Password));
+            var register = await openClient.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(username, Password));
             Assert.Equal(HttpStatusCode.Created, register.StatusCode);
         }
 
         using var closedFactory = CreateFactory(registrationEnabled: false);
         using var client = closedFactory.CreateClient();
 
-        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(email, Password));
+        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(username, Password));
         login.EnsureSuccessStatusCode();
         var token = await login.Content.ReadFromJsonAsync<AccessTokenDto>();
 
@@ -102,19 +102,19 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
-    public async Task Login_WithWrongPasswordOrUnknownEmail_Returns401()
+    public async Task Login_WithWrongPasswordOrUnknownUsername_Returns401()
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
-        var email = NewEmail();
+        var username = NewUsername();
 
-        await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(email, Password));
+        await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(username, Password));
 
-        var wrongPassword = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(email, "wrong password!"));
-        var unknownEmail = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(NewEmail(), Password));
+        var wrongPassword = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(username, "wrong password!"));
+        var unknownUsername = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest(NewUsername(), Password));
 
         Assert.Equal(HttpStatusCode.Unauthorized, wrongPassword.StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, unknownEmail.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, unknownUsername.StatusCode);
     }
 
     [Theory]
@@ -137,11 +137,49 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
+    public async Task Register_WithACaseOnlyDifferentUsername_Returns409()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var username = NewUsername();
+
+        await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(username, Password));
+        var second = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(username.ToUpperInvariant(), Password));
+
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        using var problem = JsonDocument.Parse(await second.Content.ReadAsStringAsync());
+        Assert.Equal("That username is taken.", problem.RootElement.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Register_WithAnInvalidUsername_Returns400()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var register = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest("bad name", Password));
+
+        Assert.Equal(HttpStatusCode.BadRequest, register.StatusCode);
+        Assert.Contains("InvalidUsername", await register.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Login_WithAnEmailShapedUsername_Returns401()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var login = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), new LoginUserRequest("me@example.com", Password));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+    }
+
+    [Fact]
     public async Task Login_BeyondThePermitLimit_Returns429()
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
-        var body = new LoginUserRequest(NewEmail(), Password);
+        var body = new LoginUserRequest(NewUsername(), Password);
 
         for (var attempt = 0; attempt < RateLimitingConfiguration.LoginPermitLimit; attempt++)
         {
@@ -161,5 +199,5 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
 
     private static string Route(string route) => $"/{route}";
 
-    private static string NewEmail() => $"{Guid.NewGuid():N}@example.com";
+    private static string NewUsername() => Guid.NewGuid().ToString("N");
 }

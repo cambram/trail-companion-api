@@ -23,10 +23,10 @@ The API listens on `http://localhost:5170`. In Development, Swagger UI is at `/s
 
 ```bash
 curl -X POST localhost:5170/api/users/register -H 'Content-Type: application/json' \
-  -d '{"email":"me@example.com","password":"correct horse battery"}'
+  -d '{"username":"me","password":"correct horse battery"}'
 
 TOKEN=$(curl -s -X POST localhost:5170/api/users/login -H 'Content-Type: application/json' \
-  -d '{"email":"me@example.com","password":"correct horse battery"}' | jq -r .accessToken)
+  -d '{"username":"me","password":"correct horse battery"}' | jq -r .accessToken)
 
 curl localhost:5170/api/users/me -H "Authorization: Bearer $TOKEN"
 ```
@@ -35,13 +35,13 @@ curl localhost:5170/api/users/me -H "Authorization: Bearer $TOKEN"
 
 | Method | Route | Auth | Result |
 | --- | --- | --- | --- |
-| POST | `/api/users/register` | none | 201, 400 invalid input, 409 duplicate email |
+| POST | `/api/users/register` | none | 201, 400 invalid input, 409 duplicate username |
 | POST | `/api/users/login` | none, 5/min per IP | 200 `{ accessToken, expiresAtUtc }`, 401, 429 |
 | GET | `/api/users/me` | bearer | 200, 401 |
 
 ## Not included (add when needed)
 
 - **Refresh tokens / logout**: store a hashed random token in a `RefreshTokens` table with expiry; rotate on use.
-- **Email verification, password reset**: single-use hashed tokens with expiry, sent by email.
+- **Password reset**: needs an email or other recovery channel; deferred (TRAIL-11, TRAIL-12).
 - **Roles**: add a `role` claim and `RequireAuthorization(p => p.RequireRole("admin"))`.
 - **Background jobs**: Hangfire behind an `IBackgroundJobScheduler` contract in Application.

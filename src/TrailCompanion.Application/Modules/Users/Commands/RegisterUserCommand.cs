@@ -40,14 +40,14 @@ internal sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserC
             throw new ForbiddenException("Account creation is currently closed.");
         }
 
-        var email = UserEmail.Normalize(command.Request.Email);
+        var username = UserName.Normalize(command.Request.Username);
         var password = command.Request.Password ?? string.Empty;
 
-        RequireValid(email, password);
+        RequireValid(username, password);
 
         var appUser = new AppUser
         {
-            Email = email,
+            Username = username,
             PasswordHash = _passwordHasher.Hash(password)
         };
 
@@ -57,13 +57,15 @@ internal sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserC
         return AppUserDto.FromEntity(appUser);
     }
 
-    private static void RequireValid(string email, string password)
+    private static void RequireValid(string username, string password)
     {
         var failures = new List<ValidationFailure>();
 
-        if (email.Length is 0 or > UserEmail.MaxLength || !email.Contains('@'))
+        if (!UserName.IsValid(username))
         {
-            failures.Add(new ValidationFailure("InvalidEmail", "A valid email address is required."));
+            failures.Add(new ValidationFailure(
+                "InvalidUsername",
+                "Username must be 3 to 32 characters: letters, numbers, _, . or -."));
         }
 
         failures.AddRange(PasswordRules.Check(password));

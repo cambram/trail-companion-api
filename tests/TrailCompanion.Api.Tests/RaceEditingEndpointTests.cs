@@ -148,9 +148,9 @@ public class RaceEditingEndpointTests : IClassFixture<PostgresDatabaseFixture>
 
     private static async Task SignIn(HttpClient client)
     {
-        var email = $"{Guid.NewGuid():N}@example.com";
-        await client.PostAsJsonAsync($"/{ApiEndpoints.Users.RegisterUser}", new RegisterUserRequest(email, Password));
-        var login = await client.PostAsJsonAsync($"/{ApiEndpoints.Users.LoginUser}", new LoginUserRequest(email, Password));
+        var username = Guid.NewGuid().ToString("N");
+        await client.PostAsJsonAsync($"/{ApiEndpoints.Users.RegisterUser}", new RegisterUserRequest(username, Password));
+        var login = await client.PostAsJsonAsync($"/{ApiEndpoints.Users.LoginUser}", new LoginUserRequest(username, Password));
         var token = await login.Content.ReadFromJsonAsync<AccessTokenDto>();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token!.AccessToken);
     }

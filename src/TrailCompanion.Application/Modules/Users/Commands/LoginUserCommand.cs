@@ -38,14 +38,14 @@ internal sealed class LoginUserCommandHandler : IRequestHandler<LoginUserCommand
 
     public async Task<AuthTokens> Handle(LoginUserCommand command, CancellationToken cancellationToken)
     {
-        var email = UserEmail.Normalize(command.Request.Email);
-        var appUser = await _appUserRepository.GetByEmailAsync(email, cancellationToken);
+        var username = UserName.Normalize(command.Request.Username);
+        var appUser = await _appUserRepository.GetByUsernameAsync(username, cancellationToken);
 
         var passwordMatches = _passwordHasher.Verify(command.Request.Password ?? string.Empty, appUser?.PasswordHash);
 
         if (appUser is null || !passwordMatches)
         {
-            throw new UnauthorizedException("Invalid email or password.");
+            throw new UnauthorizedException("Invalid username or password.");
         }
 
         return await AuthTokenSession.StartAsync(
