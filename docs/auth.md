@@ -8,7 +8,7 @@ How auth works in TrailCompanion API. Part 1 is for anyone working on the API. P
 - Register with username + password, log in to get an access token, send it as `Authorization: Bearer <token>`.
 - Access token lives 15 minutes. Login also sets a 30-day refresh token in an `HttpOnly` cookie; `POST /api/users/refresh` swaps it for a new access token and a rotated cookie.
 - The token carries one claim that matters: `sub` = the user's `AppUser.Id` (GUID).
-- Every endpoint except register, login, refresh and logout requires a valid token.
+- Every endpoint except register, login, refresh and logout requires a valid token. This is enforced by a fallback policy, so a new endpoint without `AllowAnonymous()` is closed. `EndpointAuthorizationTests` checks every route.
 
 ---
 
@@ -20,10 +20,10 @@ Base path is `api`. Route constants live in `src/TrailCompanion.Api/Endpoints/Ap
 
 | Method | Route | Auth | Purpose |
 |---|---|---|---|
-| POST | `/api/users/register` | Anonymous | Create an account |
-| POST | `/api/users/login` | Anonymous, rate limited | Exchange credentials for an access token and a refresh cookie |
-| POST | `/api/users/refresh` | Anonymous (cookie is the credential), rate limited | Rotate the refresh cookie, return a new access token |
-| POST | `/api/users/logout` | Anonymous | Revoke the refresh cookie and clear it |
+| POST | `/api/users/register` | Anonymous, rate limited | Create an account |
+| POST | `/api/users/login` | Anonymous, rate limited, Origin-checked | Exchange credentials for an access token and a refresh cookie |
+| POST | `/api/users/refresh` | Anonymous (cookie is the credential), rate limited, Origin-checked | Rotate the refresh cookie, return a new access token |
+| POST | `/api/users/logout` | Anonymous, Origin-checked | Revoke the refresh cookie and clear it |
 | GET | `/api/users/me` | Bearer required | Return the caller's account |
 | PUT | `/api/users/me` | Bearer required | Set or clear first and last name |
 | DELETE | `/api/users/me` | Bearer required, rate limited | Permanently delete the account (password required) |
@@ -67,10 +67,14 @@ Validation (all failures reported together):
 |---|---|
 | `InvalidUsername` | After trimming and lowercasing, not 3 to 32 characters from a-z, 0-9, _, . or - |
 | `PasswordTooShort` | Fewer than 8 characters |
+| `PasswordTooLong` | More than 128 characters |
+| `PasswordBreached` | In the HIBP corpus (only with `FeatureManagement:BreachedPasswordCheck` on) |
 
 Password rules live in one shared class, `Application/Modules/Users/PasswordRules.cs`, used by register and change password.
 
-Errors: `400` validation, `409` username already taken (`DuplicateUsername`, "That username is taken.").
+Errors: `400` validation, `409` username already taken (`DuplicateUsername`, "That username is taken."), `429` rate limited.
+
+Rate limited, 10 per minute per client. `400 PasswordTooLong` above 128 characters. With `FeatureManagement:BreachedPasswordCheck` on, `400 PasswordBreached` when the password is in the HIBP corpus; the check fails open after 3 seconds. A taken username returns `409` with "That username is taken." This is deliberate: usernames are public identifiers (audit L3, accepted).
 
 ### `POST /api/users/login`
 
@@ -89,15 +93,17 @@ Success: `200 OK`:
 Errors:
 
 - `401` for unknown username **and** wrong password. Same status and same message (`Invalid username or password.`) for both, so callers cannot probe which usernames exist. Login does not check the username format.
-- `429` after 5 attempts per minute from one IP.
+- `429` after 5 attempts per minute from one client.
+- `401` "Too many failed attempts. Try again in 15 minutes." After 10 failed attempts for one username within 15 minutes, that username gets this `401` until the window ends, whatever the password. In-memory, per instance, cleared on restart.
+- `403` when the `Origin` header is not allowed (see Cross-site requests).
 
 On success the response also carries `Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=None; Path=/api/users; Expires=...`.
 
 ### `POST /api/users/refresh`
 
-No body, no bearer. The `refresh_token` cookie is the credential. Success: `200` with the same body as login and a new cookie. The presented token is marked replaced and stops working immediately (rotation).
+No body, no bearer. The `refresh_token` cookie is the credential. Success: `200` with the same body as login and a new cookie. The presented token is marked replaced and stops working immediately (rotation). Rotation (`IRefreshTokensRepository.RotateAsync`) revokes the old token with a conditional update and inserts the new one in one database transaction, so concurrent refreshes with one cookie succeed exactly once; a loser counts as reuse and revokes every token for the user. A session ends 90 days after login however often it rotates. Sessions that existed before the `SessionStartedAtUtc` migration were backfilled from `CreatedAtUtc`, so they get up to 90 days from their latest rotation (one-time).
 
-`401` (ProblemDetails, no cookie set) when the cookie is absent, unknown, expired or revoked. Presenting a token that was already rotated or revoked is treated as theft: **every** refresh token for that user is revoked, so the user must log in again on every device. `429` after 30 requests per minute from one IP.
+`401` (ProblemDetails, no cookie set) when the cookie is absent, unknown, expired or revoked. Presenting a token that was already rotated or revoked is treated as theft: **every** refresh token for that user is revoked, so the user must log in again on every device. `429` after 30 requests per minute from one client. `403` for a foreign `Origin`.
 
 ### `POST /api/users/logout`
 
@@ -113,17 +119,17 @@ Body `{ "firstName": "...", "lastName": "..." }`. Both are trimmed; empty or whi
 
 ### `POST /api/users/password`
 
-Body `{ "currentPassword": "...", "newPassword": "..." }`. Rate limited, 5 per minute per IP.
+Body `{ "currentPassword": "...", "newPassword": "..." }`. Rate limited, 5 per minute per client.
 
 - `401` ProblemDetails when `currentPassword` is wrong. Clients must not treat this 401 as a session expiry.
-- `400` with the register password codes (`PasswordTooShort`), or `PasswordUnchanged` when the new password equals the current one.
-- `204` on success. Every refresh token for the user **except the caller's current cookie** is revoked, so other devices must log in again. Access tokens cannot be revoked: any already issued stay valid until they expire (at most 15 minutes).
+- `400` with the register password codes (`PasswordTooShort`, `PasswordTooLong`, `PasswordBreached`), or `PasswordUnchanged` when the new password equals the current one.
+- `204` on success. Every refresh token for the user **except the caller's current cookie** is revoked, so other devices must log in again. Access tokens issued before the change are rejected (`PasswordChangedAtUtc`, checked in `OnTokenValidated`). The caller's kept cookie refreshes into a valid token.
 
 ### `DELETE /api/users/me`
 
-Body `{ "password": "..." }`. Rate limited, 5 per minute per IP. `401` ProblemDetails on a wrong password. On success returns `204` and clears the refresh cookie.
+Body `{ "password": "..." }`. Rate limited, 5 per minute per client. `401` ProblemDetails on a wrong password. On success returns `204` and clears the refresh cookie.
 
-Deletion is a **permanent hard delete**, with no grace period or undo: the user row and all their races, segments, items, aid stations, aid station items, nutrition items and refresh tokens are removed in one transaction. An access token issued before deletion stays cryptographically valid until it expires, but it reaches no data: the user and everything they owned are gone.
+Deletion is a **permanent hard delete**, with no grace period or undo: the user row and all their races, segments, items, aid stations, aid station items, nutrition items and refresh tokens are removed in one transaction. Access tokens of a deleted user are rejected with `401` (previously `404`).
 
 ## Token
 
@@ -141,7 +147,7 @@ Issued by `JwtAccessTokenIssuer` (`src/TrailCompanion.Infrastructure/Authenticat
 
 Validation (`AuthenticationConfiguration` in Api): signature, expiry, issuer, audience. Only HS256 is accepted. Clock skew tolerance is 30 seconds. `MapInboundClaims = false`, so the claim stays named `sub` instead of being remapped to a long .NET claim URI.
 
-Access tokens cannot be revoked; one stays valid until it expires. Refresh tokens can.
+There is no access-token revocation list, but `OnTokenValidated` rejects a token issued before the user's `PasswordChangedAtUtc`, and a token whose user no longer exists gets `401` (not `404`). Refresh tokens can be revoked.
 
 ## Refresh tokens
 
@@ -151,12 +157,14 @@ Issued by `RefreshTokenIssuer` (`Infrastructure/Authentication/`).
 |---|---|
 | Value | 32 random bytes from `RandomNumberGenerator`, base64url. Opaque, not a JWT |
 | Storage | `RefreshTokens` table stores only the SHA-256 hash (`TokenHash`, unique index). The raw value is never stored or logged |
-| Lifetime | `Jwt:RefreshTokenLifetimeDays`, default 30, absolute (rotation issues a fresh 30 days) |
+| Lifetime | `Jwt:RefreshTokenLifetimeDays`, default 30 per token; session capped at 90 days from login (`SessionStartedAtUtc`). |
 | Rotation | Every refresh revokes the old row, sets `ReplacedByTokenId`, and issues a new one |
 | Reuse detection | A revoked or replaced token presented again revokes every token for that user |
 | Cookie | `refresh_token`, `HttpOnly`, `Secure`, `SameSite=None`, `Path=/api/users`, explicit `Expires` |
 
 `SameSite=None` is required because the SPA and API are on different sites in deployment. It requires `Secure`, so the cookie only travels over HTTPS; browsers exempt `http://localhost`, so local development works. Expired and revoked rows are not cleaned up yet (no job scheduler).
+
+Cross-site requests: login, refresh and logout reject any `Origin` header not in `Cors:AllowedOrigins` with `403`. Requests with no `Origin` (non-browser clients) pass. The Development-only Swagger UI runs on the API origin (`http://localhost:5170`), which is not in `Cors:AllowedOrigins`, so login, refresh and logout from Swagger UI return `403`; use the SPA or a client that sends no `Origin` (curl).
 
 ## Configuration
 
@@ -180,6 +188,8 @@ In deployed environments, supply it as the environment variable `Jwt__Key` (or y
 
 `Cors:AllowedOrigins` is a string array. Development allows `http://localhost:5173`. Production must list the real frontend origin(s), exact scheme plus host with no trailing slash; the base `appsettings.json` default is empty, meaning no browser origin is allowed. The policy calls `AllowCredentials()` so the refresh cookie is sent, which is only safe because origins are an explicit list, never a wildcard.
 
+`DATABASE_URL_MIGRATIONS` (`ConnectionStrings:MigrationsConnection`) is the owner role, a direct URL, used for migrations only. The app itself connects with `DATABASE_URL` as a non-owner role.
+
 ### Registration feature flag
 
 `FeatureManagement:RegistrationEnabled` (via `Microsoft.FeatureManagement`) controls whether `POST /api/users/register` creates accounts. `appsettings.json` defaults it to `true`. Do not remove that default: a feature with no definition counts as disabled.
@@ -187,6 +197,8 @@ In deployed environments, supply it as the environment variable `Jwt__Key` (or y
 | Env var | Config key | Values |
 |---|---|---|
 | `FEATURE_REGISTRATION_ENABLED` | `FeatureManagement:RegistrationEnabled` | Unset or blank means enabled. `true` (any case) means enabled. Anything else, including typos, means disabled. |
+
+`FEATURE_BREACHED_PASSWORD_CHECK` (`FeatureManagement:BreachedPasswordCheck`) switches the breached-password check on register on or off.
 
 The value is read when the request arrives, from configuration loaded at startup. To change it, set the variable and restart the service. The web app has its own variable with the same name, set at build time. The two are not linked: the deploy must keep them the same. The API is the real gate. If the web app says open but the API says closed, users see "Account creation is currently closed" when they submit.
 
@@ -204,7 +216,7 @@ The value is read when the request arrives, from configuration loaded at startup
 - `UserName.Normalize` trims and lowercases. It is applied on register **and** login, so usernames are case-insensitive.
 - Register also requires `UserName.IsValid`: 3 to 32 characters from a-z, 0-9, `_`, `.` and `-`. Login skips this check, so a stored username outside the rules (the account migrated from an email) still logs in.
 - Uniqueness is enforced by a unique index on `AppUsers.Username` (`IX_AppUsers_Username`), not by a pre-check. `Repository.SaveChangesAsync` translates the violation into `ConflictException` via `UniqueConstraintConflicts`, giving a `409`.
-- Note: register returns `409` for an existing username, so registration does reveal whether a username is taken. Login does not.
+- Note: register returns `409` for an existing username, so registration does reveal whether a username is taken. Login does not. Accepted (audit L3): usernames are public identifiers.
 
 ## Request pipeline
 
@@ -218,7 +230,9 @@ Order is load-bearing (`Program.cs`):
 6. `UseAuthorization()`.
 7. Endpoints.
 
-Per-route rules are set on each endpoint class individually: `RequireAuthorization()` for protected, `AllowAnonymous()` for public. No route group inherits either, and no fallback authorization policy is set, so a new endpoint with neither is open to everyone. Always declare one, and verify a new endpoint returns 401 without a token.
+`ForwardedHeaders` runs before all of these.
+
+Per-route rules are set on each endpoint class individually: `RequireAuthorization()` for protected, `AllowAnonymous()` for public. No route group inherits either, but a fallback policy requires authentication, so a new endpoint with neither is closed. Always declare one, and verify a new endpoint returns 401 without a token. `EndpointAuthorizationTests` checks every route.
 
 ## Who is the caller? (`ICurrentUser`)
 
@@ -268,17 +282,20 @@ Shape:
 
 ## Rate limiting
 
-Fixed window of 1 minute, partitioned by `RemoteIpAddress`. Exceeding returns `429`.
+Fixed window of 1 minute, partitioned by client address (see below). Exceeding returns `429`.
 
 | Policy | Routes | Limit |
 |---|---|---|
+| `register` | `POST /api/users/register` | 10 |
 | `login` | `POST /api/users/login` | 5 |
 | `refresh` | `POST /api/users/refresh` | 30 |
 | `account` | `POST /api/users/password`, `DELETE /api/users/me` | 5 |
 
-- Register is **not** rate limited.
 - No `Retry-After` header is configured.
-- No forwarded-headers middleware is configured. Behind a reverse proxy or load balancer, `RemoteIpAddress` is the proxy, so all users share one bucket. Add `UseForwardedHeaders` if deploying behind one.
+
+## Rate limiting and client address
+
+Partitioned per client: the rightmost `X-Forwarded-For` hop (`ForwardLimit = 1`, `KnownIPNetworks` and `KnownProxies` cleared). This is safe only because the container is reachable solely through Render's proxy; if that changes, set `KnownIPNetworks` to the proxy range. IPv6 is grouped by /64. Password hashing (register, login, change password, delete account) is additionally capped at 2 concurrent requests, queue 10, else `429`.
 
 ## HTTPS
 
@@ -298,6 +315,7 @@ Every request gets a correlation id. Inbound `X-Correlation-Id` is accepted if i
 | JWT validation setup | `Api/Common/Configuration/DependencyInjection/AuthenticationConfiguration.cs` |
 | CORS | `Api/Common/Configuration/DependencyInjection/CorsConfiguration.cs` |
 | Rate limiting | `Api/Common/Configuration/DependencyInjection/RateLimitingConfiguration.cs` |
+| Per-account quotas | `Application/Modules/Users/Commands/AccountLimitRules.cs` |
 | `ICurrentUser` impl | `Api/Common/Services/CurrentUser.cs` |
 | Error mapping | `Api/Common/Middleware/ExceptionHandlingMiddleware.cs` |
 | Account handlers | `Application/Modules/Users/Commands/{RegisterUser,LoginUser,RefreshAccessToken,Logout,UpdateProfile,ChangePassword,DeleteAccount}Command.cs` |
@@ -319,13 +337,12 @@ Every request gets a correlation id. Inbound `X-Correlation-Id` is accepted if i
 
 ## Known limitations
 
-- Access tokens cannot be revoked. A leaked access token is valid until `exp` (at most 15 minutes), even after logout, password change or account deletion.
+- A leaked access token is valid until `exp` (at most 15 minutes), even after logout. Password change and account deletion do reject older tokens.
 - Expired and revoked refresh-token rows are never deleted.
-- Two truly simultaneous refreshes with the same cookie (for example two tabs at the same millisecond) look like reuse and log the user out everywhere.
-- No email is stored. There is no password reset: a forgotten password is fixed in the database. No account lockout (only the per-IP login rate limit).
+- No email is stored. There is no password reset: a forgotten password is fixed in the database. The login throttle is per username, in-memory and per instance; no other account lockout. No in-app MFA.
 - Usernames cannot be changed.
 - No roles or scopes.
-- Register is unthrottled and reveals whether a username is taken (409).
+- Register reveals whether a username is taken (409). Accepted.
 
 ---
 
@@ -380,7 +397,8 @@ The API allows only origins listed in `Cors:AllowedOrigins`. In Development that
 | 403 on register | Account creation is closed (`FEATURE_REGISTRATION_ENABLED`) | ProblemDetails | Show "Account creation is currently closed", offer login |
 | 404 | Not found, **or owned by another user** | ProblemDetails | Treat as missing |
 | 409 | Username already taken (register) | ProblemDetails with `validationErrors` | Tell user, offer login |
-| 429 | Login rate limit hit | **Empty** | Show "try again in a minute" |
+| 403 on login, refresh, logout | Foreign `Origin` | ProblemDetails | Should not happen from the SPA; check `Cors:AllowedOrigins` |
+| 429 | Rate limit hit | **Empty** | Show "try again in a minute" |
 | 500 | Server error | ProblemDetails | Show generic error, log `correlationId` |
 
 Because 401 and 429 can have empty bodies, check `response.status` first and parse JSON only when `Content-Type` is `application/problem+json`.
@@ -389,6 +407,9 @@ Validation error codes to map to UI messages:
 
 - `InvalidUsername`
 - `PasswordTooShort` (min 8 characters)
+- `PasswordTooLong` (max 128 characters)
+- `PasswordBreached`
+- `LimitReached` (per-account quota on the create endpoints)
 - `PasswordUnchanged`
 - `FirstNameTooLong`, `LastNameTooLong` (max 100 characters)
 

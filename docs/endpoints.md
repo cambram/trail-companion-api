@@ -8,10 +8,10 @@ Every endpoint except register, login, refresh and logout needs `Authorization: 
 
 | Method | Route | Description | Request | Response | Endpoint file |
 |---|---|---|---|---|---|
-| POST | `/api/users/register` | Create a new account from username and password, returning user. | [RegisterUserRequest](#registeruserrequest) | 201 [AppUserDto](#appuserdto); 403 when account creation is closed | [RegisterUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RegisterUserEndpoint.cs) |
-| POST | `/api/users/login` | Exchange username and password for a short-lived JWT access token. | [LoginUserRequest](#loginuserrequest) | 200 [AccessTokenDto](#accesstokendto) | [LoginUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/LoginUserEndpoint.cs) |
-| POST | `/api/users/refresh` | Rotate the `refresh_token` cookie and return a new access token. | cookie | 200 [AccessTokenDto](#accesstokendto) | [RefreshTokenEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RefreshTokenEndpoint.cs) |
-| POST | `/api/users/logout` | Revoke the refresh cookie and clear it. No bearer needed. | cookie | 204 | [LogoutEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/LogoutEndpoint.cs) |
+| POST | `/api/users/register` | Create a new account from username and password, returning user. | [RegisterUserRequest](#registeruserrequest) | 201 [AppUserDto](#appuserdto); 400 `PasswordTooLong` / `PasswordBreached`; 403 when account creation is closed; 429 rate limited | [RegisterUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RegisterUserEndpoint.cs) |
+| POST | `/api/users/login` | Exchange username and password for a short-lived JWT access token. | [LoginUserRequest](#loginuserrequest) | 200 [AccessTokenDto](#accesstokendto); 403 foreign Origin | [LoginUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/LoginUserEndpoint.cs) |
+| POST | `/api/users/refresh` | Rotate the `refresh_token` cookie and return a new access token. | cookie | 200 [AccessTokenDto](#accesstokendto); 403 foreign Origin | [RefreshTokenEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RefreshTokenEndpoint.cs) |
+| POST | `/api/users/logout` | Revoke the refresh cookie and clear it. No bearer needed. | cookie | 204; 403 foreign Origin | [LogoutEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/LogoutEndpoint.cs) |
 | GET | `/api/users/me` | Return the authenticated caller's own account details and creation date. | none | 200 [AppUserDto](#appuserdto) | [GetMyUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetMyUserEndpoint.cs) |
 | PUT | `/api/users/me` | Set or clear first and last name. Username cannot change. | [UpdateProfileRequest](#updateprofilerequest) | 200 [AppUserDto](#appuserdto) | [UpdateMyUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateMyUserEndpoint.cs) |
 | DELETE | `/api/users/me` | Permanently hard-delete the account and everything it owns. 401 on wrong password. | [DeleteAccountRequest](#deleteaccountrequest) | 204 | [DeleteMyUserEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteMyUserEndpoint.cs) |
@@ -22,7 +22,7 @@ Every endpoint except register, login, refresh and logout needs `Authorization: 
 | Method | Route | Description | Request | Response | Endpoint file |
 |---|---|---|---|---|---|
 | GET | `/api/races` | List every race owned by the authenticated user, without segments. | none | 200 [RaceDto](#racedto)[] | [GetRacesEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetRacesEndpoint.cs) |
-| POST | `/api/races` | Create a race with a name and optional carb target. | [CreateRaceRequest](#createracerequest) | 201 [RaceDto](#racedto) | [CreateRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateRaceEndpoint.cs) |
+| POST | `/api/races` | Create a race with a name and optional carb target. | [CreateRaceRequest](#createracerequest) | 201 [RaceDto](#racedto); 400 `LimitReached` | [CreateRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateRaceEndpoint.cs) |
 | GET | `/api/races/{id}` | Return one race with its segments and each segment's items. | none | 200 [RaceDetailDto](#racedetaildto) | [GetRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetRaceEndpoint.cs) |
 | PUT | `/api/races/{id}` | Rename an owned race and optionally change its carb target; omitted target is kept. | [CreateRaceRequest](#createracerequest) | 200 [RaceDto](#racedto) | [UpdateRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateRaceEndpoint.cs) |
 | DELETE | `/api/races/{id}` | Delete an owned race; unknown or foreign races return 404. | none | 204 | [DeleteRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteRaceEndpoint.cs) |
@@ -31,7 +31,7 @@ Every endpoint except register, login, refresh and logout needs `Authorization: 
 
 | Method | Route | Description | Request | Response | Endpoint file |
 |---|---|---|---|---|---|
-| POST | `/api/races/{raceId}/segments` | Add a segment to a race, appended at next position. | [SegmentRequest](#segmentrequest) | 201 [SegmentDto](#segmentdto) | [CreateSegmentEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateSegmentEndpoint.cs) |
+| POST | `/api/races/{raceId}/segments` | Add a segment to a race, appended at next position. | [SegmentRequest](#segmentrequest) | 201 [SegmentDto](#segmentdto); 400 `LimitReached` | [CreateSegmentEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateSegmentEndpoint.cs) |
 | PUT | `/api/races/{raceId}/segments/order` | Set segment order from a complete list of segment ids; positions become 1..n. | [ReorderRequest](#reorderrequest) | 204 | [ReorderSegmentsEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/ReorderSegmentsEndpoint.cs) |
 | PUT | `/api/races/{raceId}/segments/{id}` | Replace a race segment's name, duration, end km and notes fields. | [SegmentRequest](#segmentrequest) | 200 [SegmentDto](#segmentdto) | [UpdateSegmentEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateSegmentEndpoint.cs) |
 | DELETE | `/api/races/{raceId}/segments/{id}` | Delete one segment from an owned race by its identifier. | none | 204 | [DeleteSegmentEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteSegmentEndpoint.cs) |
@@ -40,7 +40,7 @@ Every endpoint except register, login, refresh and logout needs `Authorization: 
 
 | Method | Route | Description | Request | Response | Endpoint file |
 |---|---|---|---|---|---|
-| POST | `/api/races/{raceId}/segments/{segmentId}/items` | Attach a nutrition library item to an owned segment. | [ItemRequest](#itemrequest) | 201 [ItemDto](#itemdto) | [CreateItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateItemEndpoint.cs) |
+| POST | `/api/races/{raceId}/segments/{segmentId}/items` | Attach a nutrition library item to an owned segment. | [ItemRequest](#itemrequest) | 201 [ItemDto](#itemdto); 400 `LimitReached` | [CreateItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateItemEndpoint.cs) |
 | PUT | `/api/races/{raceId}/segments/{segmentId}/items/order` | Set item order from a complete list of item ids; positions become 1..n. | [ReorderRequest](#reorderrequest) | 204 | [ReorderItemsEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/ReorderItemsEndpoint.cs) |
 | DELETE | `/api/races/{raceId}/segments/{segmentId}/items/{id}` | Delete one fuel item from a segment by its identifier. | none | 204 | [DeleteItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteItemEndpoint.cs) |
 
@@ -54,7 +54,7 @@ An aid station sits before a segment (the gap between the previous segment and t
 | PUT | `/api/races/{raceId}/aid-stations/{id}` | Replace an aid station's name, notes and kit list. | [AidStationRequest](#aidstationrequest) | 200 [AidStationDto](#aidstationdto) | [UpdateAidStationEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateAidStationEndpoint.cs) |
 | DELETE | `/api/races/{raceId}/aid-stations/{id}` | Delete an aid station and its items. | none | 204 | [DeleteAidStationEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteAidStationEndpoint.cs) |
 | PUT | `/api/races/{raceId}/aid-stations/{id}/move` | Move an aid station before another segment, swapping with any station already there. | [MoveAidStationRequest](#moveaidstationrequest) | 204 | [MoveAidStationEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/MoveAidStationEndpoint.cs) |
-| POST | `/api/races/{raceId}/aid-stations/{aidStationId}/items` | Attach a nutrition library item to an aid station. | [ItemRequest](#itemrequest) | 201 [AidStationItemDto](#aidstationitemdto) | [CreateAidStationItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateAidStationItemEndpoint.cs) |
+| POST | `/api/races/{raceId}/aid-stations/{aidStationId}/items` | Attach a nutrition library item to an aid station. | [ItemRequest](#itemrequest) | 201 [AidStationItemDto](#aidstationitemdto); 400 `LimitReached` | [CreateAidStationItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateAidStationItemEndpoint.cs) |
 | PUT | `/api/races/{raceId}/aid-stations/{aidStationId}/items/order` | Set item order from a complete list of item ids; positions become 1..n. | [ReorderRequest](#reorderrequest) | 204 | [ReorderAidStationItemsEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/ReorderAidStationItemsEndpoint.cs) |
 | DELETE | `/api/races/{raceId}/aid-stations/{aidStationId}/items/{id}` | Delete one item from an aid station. | none | 204 | [DeleteAidStationItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteAidStationItemEndpoint.cs) |
 
@@ -67,7 +67,7 @@ Every route returns 401 without a token and 404 for a missing or foreign race, s
 | Method | Route | Description | Request | Response | Endpoint file |
 |---|---|---|---|---|---|
 | GET | `/api/nutrition-items` | List the caller's nutrition library, ordered by name. | none | 200 [NutritionItemDto](#nutritionitemdto)[] | [GetNutritionItemsEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetNutritionItemsEndpoint.cs) |
-| POST | `/api/nutrition-items` | Create a nutrition library item. 409 when the name is already taken. | [NutritionItemRequest](#nutritionitemrequest) | 201 [NutritionItemDto](#nutritionitemdto) | [CreateNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateNutritionItemEndpoint.cs) |
+| POST | `/api/nutrition-items` | Create a nutrition library item. 409 when the name is already taken. | [NutritionItemRequest](#nutritionitemrequest) | 201 [NutritionItemDto](#nutritionitemdto); 400 `LimitReached` | [CreateNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateNutritionItemEndpoint.cs) |
 | PUT | `/api/nutrition-items/{id}` | Replace every field of an owned library item. Changes apply to every race using it. | [NutritionItemRequest](#nutritionitemrequest) | 200 [NutritionItemDto](#nutritionitemdto) | [UpdateNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateNutritionItemEndpoint.cs) |
 | DELETE | `/api/nutrition-items/{id}` | Delete an owned library item. 409 when any segment or aid station still uses it. | none | 204 | [DeleteNutritionItemEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteNutritionItemEndpoint.cs) |
 
@@ -111,4 +111,4 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 
 ## Error responses
 
-Failures return `ProblemDetails` with a `correlationId`: 400 validation, 401 unauthenticated or bad login, 404 missing or not owned, 409 duplicate username, duplicate nutrition item name or a library item still in use or a segment that already has an aid station, 429 login rate limit.
+Failures return `ProblemDetails` with a `correlationId`: 400 validation, 401 unauthenticated or bad login, 404 missing or not owned, 403 login, refresh or logout from a foreign `Origin`, 409 duplicate username, duplicate nutrition item name or a library item still in use or a segment that already has an aid station, 429 rate limit.
