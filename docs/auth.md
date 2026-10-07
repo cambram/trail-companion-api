@@ -122,7 +122,7 @@ Body `{ "firstName": "...", "lastName": "..." }`. Both are trimmed; empty or whi
 Body `{ "currentPassword": "...", "newPassword": "..." }`. Rate limited, 5 per minute per client.
 
 - `401` ProblemDetails when `currentPassword` is wrong. Clients must not treat this 401 as a session expiry.
-- `400` with the register password codes (`PasswordTooShort`, `PasswordTooLong`, `PasswordBreached`), or `PasswordUnchanged` when the new password equals the current one.
+- `400` with the register password codes (`PasswordTooShort`, `PasswordTooLong`, `PasswordBreached`; with `FeatureManagement:BreachedPasswordCheck` on, a breached new password returns `400 PasswordBreached`, and the check fails open after 3 seconds), or `PasswordUnchanged` when the new password equals the current one.
 - `204` on success. Every refresh token for the user **except the caller's current cookie** is revoked, so other devices must log in again. Access tokens issued before the change are rejected (`PasswordChangedAtUtc`, checked in `OnTokenValidated`). The caller's kept cookie refreshes into a valid token.
 
 ### `DELETE /api/users/me`
@@ -198,7 +198,7 @@ In deployed environments, supply it as the environment variable `Jwt__Key` (or y
 |---|---|---|
 | `FEATURE_REGISTRATION_ENABLED` | `FeatureManagement:RegistrationEnabled` | Unset or blank means enabled. `true` (any case) means enabled. Anything else, including typos, means disabled. |
 
-`FEATURE_BREACHED_PASSWORD_CHECK` (`FeatureManagement:BreachedPasswordCheck`) switches the breached-password check on register on or off.
+`FEATURE_BREACHED_PASSWORD_CHECK` (`FeatureManagement:BreachedPasswordCheck`) switches the breached-password check on register and password change on or off.
 
 The value is read when the request arrives, from configuration loaded at startup. To change it, set the variable and restart the service. The web app has its own variable with the same name, set at build time. The two are not linked: the deploy must keep them the same. The API is the real gate. If the web app says open but the API says closed, users see "Account creation is currently closed" when they submit.
 
@@ -409,7 +409,7 @@ Validation error codes to map to UI messages:
 - `PasswordTooShort` (min 8 characters)
 - `PasswordTooLong` (max 128 characters)
 - `PasswordBreached`
-- `LimitReached` (per-account quota on the create endpoints)
+- `LimitReached` (per-account quota on the create endpoints: 100 races per account, 100 segments per race, 50 items per segment, 50 items per aid station, 500 nutrition items)
 - `PasswordUnchanged`
 - `FirstNameTooLong`, `LastNameTooLong` (max 100 characters)
 
