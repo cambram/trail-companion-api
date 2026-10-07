@@ -56,6 +56,7 @@ internal sealed class CreateAidStationItemCommandHandler : IRequestHandler<Creat
 
         var existing = await _aidStationItemsRepository.GetByAidStationIdAsync(
             command.AppUserId, command.RaceId, command.AidStationId, cancellationToken);
+        AccountLimitRules.RequireRoom(existing.Count, AccountLimitRules.MaxItemsPerAidStation, "items at an aid station");
 
         var item = new AidStationItems
         {

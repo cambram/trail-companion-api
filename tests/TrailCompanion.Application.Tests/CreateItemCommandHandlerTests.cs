@@ -113,4 +113,18 @@ public class CreateItemCommandHandlerTests
 
         await _items.DidNotReceive().AddAsync(Arg.Any<Items>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Handle_AtTheItemLimit_ThrowsAndStoresNothing()
+    {
+        GivenOwnedSegment(Enumerable.Range(1, AccountLimitRules.MaxItemsPerSegment)
+            .Select(i => new Items { Position = i })
+            .ToArray());
+        GivenOwnedNutritionItem();
+
+        await Assert.ThrowsAsync<ValidationFailedException>(() =>
+            CreateHandler().Handle(Command(_nutritionItemId), CancellationToken.None));
+
+        await _items.DidNotReceive().AddAsync(Arg.Any<Items>(), Arg.Any<CancellationToken>());
+    }
 }

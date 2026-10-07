@@ -23,6 +23,22 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
+    public async Task Register_BeyondThePermitLimit_Returns429()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        for (var attempt = 0; attempt < RateLimitingConfiguration.RegisterPermitLimit; attempt++)
+        {
+            await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(NewUsername(), Password));
+        }
+
+        var limited = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.RegisterUser), new RegisterUserRequest(NewUsername(), Password));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+    }
+
+    [Fact]
     public async Task RegisterThenLogin_IssuesATokenThatReachesTheProtectedEndpoint()
     {
         using var factory = CreateFactory();
@@ -189,6 +205,35 @@ public class AuthFlowTests : IClassFixture<PostgresDatabaseFixture>
         var limited = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.LoginUser), body);
 
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_RateLimit_IsCountedPerForwardedClientAddress()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var body = new LoginUserRequest(NewUsername(), Password);
+
+        for (var attempt = 0; attempt < RateLimitingConfiguration.LoginPermitLimit; attempt++)
+        {
+            await client.SendAsync(LoginFrom("203.0.113.1", body));
+        }
+
+        var limited = await client.SendAsync(LoginFrom("203.0.113.1", body));
+        var otherClient = await client.SendAsync(LoginFrom("203.0.113.2", body));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, otherClient.StatusCode);
+    }
+
+    private static HttpRequestMessage LoginFrom(string address, LoginUserRequest body)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, Route(ApiEndpoints.Users.LoginUser))
+        {
+            Content = JsonContent.Create(body)
+        };
+        request.Headers.Add("X-Forwarded-For", address);
+        return request;
     }
 
     private WebApplicationFactory<Program> CreateFactory(bool registrationEnabled = true) =>

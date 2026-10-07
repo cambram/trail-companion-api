@@ -35,7 +35,7 @@ public class CreateAidStationCommandHandlerTests
         Assert.Equal("Hout Bay", result.Name);
         Assert.Equal(string.Empty, result.Notes);
         Assert.Empty(result.Kit);
-        await _stations.Received(1).AddAsync(Arg.Is<AidStations>(a => a.SegmentId == _segmentId), Arg.Any<CancellationToken>());
+        await _stations.Received(1).AddAsync(Arg.Is<AidStations>(a => a!.SegmentId == _segmentId), Arg.Any<CancellationToken>());
         await _stations.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

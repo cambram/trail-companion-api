@@ -52,6 +52,11 @@ internal sealed class RefreshAccessTokenCommandHandler : IRequestHandler<Refresh
             throw new UnauthorizedException("Refresh token has already been used.");
         }
 
+        if (stored.SessionStartedAtUtc <= DateTime.UtcNow - AuthTokenSession.MaxSessionLifetime)
+        {
+            throw new UnauthorizedException("Session has expired. Log in again.");
+        }
+
         return await AuthTokenSession.StartAsync(
             stored.AppUserId,
             stored,

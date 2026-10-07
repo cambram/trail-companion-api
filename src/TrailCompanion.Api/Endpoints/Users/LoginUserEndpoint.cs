@@ -1,4 +1,5 @@
 using TrailCompanion.Api.Common.Configuration.DependencyInjection;
+using TrailCompanion.Api.Common.Filters;
 using TrailCompanion.Api.Common.Services;
 using TrailCompanion.Application.Modules.Users.Commands;
 using TrailCompanion.Application.Modules.Users.Dtos;
@@ -31,8 +32,11 @@ internal sealed class LoginUserEndpoint : IEndpoint
             .WithSummary("Exchanges a username and password for a short-lived bearer token and sets the httpOnly refresh cookie.")
             .Produces<AccessTokenDto>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .RequireRateLimiting(RateLimitingConfiguration.LoginPolicyName)
+            .WithMetadata(new RateLimitingConfiguration.PasswordHashingEndpoint())
+            .AddEndpointFilter<AllowedOriginFilter>()
             .AllowAnonymous();
     }
 }

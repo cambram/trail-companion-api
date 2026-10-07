@@ -34,12 +34,13 @@ internal sealed class ChangePasswordEndpoint : IEndpoint
                 })
             .WithName(Name)
             .WithTags(Modules.Users)
-            .WithSummary("Changes the caller's password and revokes their other refresh tokens. Issued bearer tokens stay valid until they expire.")
+            .WithSummary("Changes the caller's password and revokes their other refresh tokens. Access tokens issued before the change are rejected.")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .RequireRateLimiting(RateLimitingConfiguration.AccountPolicyName)
+            .WithMetadata(new RateLimitingConfiguration.PasswordHashingEndpoint())
             .RequireAuthorization();
     }
 }

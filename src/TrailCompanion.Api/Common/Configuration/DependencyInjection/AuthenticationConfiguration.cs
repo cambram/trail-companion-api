@@ -1,5 +1,7 @@
+using TrailCompanion.Api.Common.Services;
 using TrailCompanion.Application.Common.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -18,6 +20,10 @@ internal static class AuthenticationConfiguration
                 var jwt = jwtOptions.Value;
 
                 options.MapInboundClaims = false;
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = AccessTokenRevocation.RejectStaleAsync
+                };
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidIssuer = jwt.Issuer,
@@ -28,7 +34,8 @@ internal static class AuthenticationConfiguration
                 };
             });
 
-        services.AddAuthorization();
+        services.AddAuthorizationBuilder()
+            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
         return services;
     }

@@ -98,4 +98,18 @@ public class CreateSegmentCommandHandlerTests
             new CreateSegmentCommand(_appUserId, _raceId, new SegmentRequest("A", 1, null, new string('n', 2001))),
             CancellationToken.None));
     }
+
+    [Fact]
+    public async Task Handle_AtTheSegmentLimit_ThrowsAndStoresNothing()
+    {
+        GivenOwnedRace(Enumerable.Range(1, AccountLimitRules.MaxSegmentsPerRace)
+            .Select(i => new Segments { Position = i, Name = "S" })
+            .ToArray());
+
+        await Assert.ThrowsAsync<ValidationFailedException>(() => CreateHandler().Handle(
+            new CreateSegmentCommand(_appUserId, _raceId, new SegmentRequest("Next", 60, null, null)),
+            CancellationToken.None));
+
+        await _segments.DidNotReceive().AddAsync(Arg.Any<Segments>(), Arg.Any<CancellationToken>());
+    }
 }

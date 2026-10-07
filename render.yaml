@@ -19,3 +19,10 @@ services:
       # Must match FEATURE_REGISTRATION_ENABLED on trail-companion-web. Unset means enabled.
       - key: FEATURE_REGISTRATION_ENABLED
         sync: false
+      # HIBP k-anonymity check on register and password change. "true" in production.
+      - key: FEATURE_BREACHED_PASSWORD_CHECK
+        value: "true"
+      # Neon owner role, direct (non-pooled) URL. Used only to run migrations at startup.
+      # DATABASE_URL_POOLED then holds the least-privilege trail_app role (see Task 15).
+      - key: DATABASE_URL_MIGRATIONS
+        sync: false

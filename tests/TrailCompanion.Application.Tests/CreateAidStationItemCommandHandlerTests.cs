@@ -47,7 +47,7 @@ public class CreateAidStationItemCommandHandlerTests
         Assert.Equal(_stationId, result.AidStationId);
         Assert.Equal("Sandwich", result.Name);
         Assert.Equal(30, result.Carbs);
-        await _items.Received(1).AddAsync(Arg.Is<AidStationItems>(i => i.AidStationId == _stationId), Arg.Any<CancellationToken>());
+        await _items.Received(1).AddAsync(Arg.Is<AidStationItems>(i => i!.AidStationId == _stationId), Arg.Any<CancellationToken>());
         await _items.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -77,5 +77,18 @@ public class CreateAidStationItemCommandHandlerTests
         GivenOwnedStation();
 
         await Assert.ThrowsAsync<ValidationFailedException>(() => Send(null));
+    }
+
+    [Fact]
+    public async Task Handle_AtTheStationItemLimit_ThrowsAndStoresNothing()
+    {
+        GivenOwnedStation(Enumerable.Range(1, AccountLimitRules.MaxItemsPerAidStation)
+            .Select(i => new AidStationItems { Position = i })
+            .ToArray());
+        GivenOwnedNutrition();
+
+        await Assert.ThrowsAsync<ValidationFailedException>(() => Send(_nutritionItemId));
+
+        await _items.DidNotReceive().AddAsync(Arg.Any<AidStationItems>(), Arg.Any<CancellationToken>());
     }
 }

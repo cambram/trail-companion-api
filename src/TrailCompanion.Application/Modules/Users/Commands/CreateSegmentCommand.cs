@@ -38,6 +38,7 @@ internal sealed class CreateSegmentCommandHandler : IRequestHandler<CreateSegmen
         SegmentRequestRules.RequireValid(command.Request);
 
         var existing = await _segmentsRepository.GetByRaceIdAsync(command.AppUserId, command.RaceId, cancellationToken);
+        AccountLimitRules.RequireRoom(existing.Count, AccountLimitRules.MaxSegmentsPerRace, "segments in a race");
 
         var segment = new Segments
         {

@@ -1,9 +1,11 @@
+using TrailCompanion.Application.Common.Constants;
 using TrailCompanion.Application.Common.Contracts;
 using TrailCompanion.Application.Modules.Users.Commands;
 using TrailCompanion.Application.Modules.Users.Dtos;
 using TrailCompanion.Domain.Common.Exceptions;
 using TrailCompanion.Domain.Modules.Users.Entities;
 using TrailCompanion.Domain.Modules.Users.Repositories;
+using Microsoft.FeatureManagement;
 using NSubstitute;
 
 namespace TrailCompanion.Application.Tests;
@@ -14,6 +16,8 @@ public class ChangePasswordCommandHandlerTests
     private readonly IRefreshTokensRepository _refreshTokensRepository = Substitute.For<IRefreshTokensRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly IRefreshTokenIssuer _refreshTokenIssuer = Substitute.For<IRefreshTokenIssuer>();
+    private readonly IVariantFeatureManager _featureManager = Substitute.For<IVariantFeatureManager>();
+    private readonly IBreachedPasswordChecker _breachedPasswords = Substitute.For<IBreachedPasswordChecker>();
     private readonly AppUser _appUser = new() { Id = Guid.NewGuid(), Username = "runner", PasswordHash = "stored" };
 
     public ChangePasswordCommandHandlerTests()
@@ -25,7 +29,7 @@ public class ChangePasswordCommandHandlerTests
     }
 
     private ChangePasswordCommandHandler CreateHandler() =>
-        new(_repository, _refreshTokensRepository, _passwordHasher, _refreshTokenIssuer);
+        new(_repository, _refreshTokensRepository, _passwordHasher, _refreshTokenIssuer, _featureManager, _breachedPasswords);
 
     private Task Change(string? current, string? next) =>
         CreateHandler().Handle(
@@ -40,6 +44,29 @@ public class ChangePasswordCommandHandlerTests
         Assert.Equal("rehashed", _appUser.PasswordHash);
         await _repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await _refreshTokensRepository.Received(1).RevokeAllAsync(_appUser.Id, "cookie-hash", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_OnSuccess_StampsThePasswordChangeTime()
+    {
+        var before = DateTime.UtcNow;
+
+        await Change("current password", "brand new password");
+
+        Assert.NotNull(_appUser.PasswordChangedAtUtc);
+        Assert.True(_appUser.PasswordChangedAtUtc >= before);
+    }
+
+    [Fact]
+    public async Task Handle_WithABreachedNewPasswordAndTheCheckOn_ThrowsAndKeepsTheOldHash()
+    {
+        _featureManager.IsEnabledAsync(FeatureFlags.BreachedPasswordCheck, Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<bool>(true));
+        _breachedPasswords.IsBreachedAsync("brand new password", Arg.Any<CancellationToken>()).Returns(true);
+
+        await Assert.ThrowsAsync<ValidationFailedException>(() => Change("current password", "brand new password"));
+
+        Assert.Equal("stored", _appUser.PasswordHash);
     }
 
     [Fact]

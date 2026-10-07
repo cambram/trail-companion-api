@@ -1,6 +1,7 @@
 using TrailCompanion.Application.Modules.Users.Dtos;
 using TrailCompanion.Domain.Modules.Users.Entities;
 using TrailCompanion.Domain.Modules.Users.Repositories;
+using Microsoft.FeatureManagement;
 using MediatR;
 
 namespace TrailCompanion.Application.Modules.Users.Commands;
@@ -25,17 +26,23 @@ internal sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePassw
     private readonly IRefreshTokensRepository _refreshTokensRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IRefreshTokenIssuer _refreshTokenIssuer;
+    private readonly IVariantFeatureManager _featureManager;
+    private readonly IBreachedPasswordChecker _breachedPasswords;
 
     public ChangePasswordCommandHandler(
         IAppUserRepository appUserRepository,
         IRefreshTokensRepository refreshTokensRepository,
         IPasswordHasher passwordHasher,
-        IRefreshTokenIssuer refreshTokenIssuer)
+        IRefreshTokenIssuer refreshTokenIssuer,
+        IVariantFeatureManager featureManager,
+        IBreachedPasswordChecker breachedPasswords)
     {
         _appUserRepository = appUserRepository;
         _refreshTokensRepository = refreshTokensRepository;
         _passwordHasher = passwordHasher;
         _refreshTokenIssuer = refreshTokenIssuer;
+        _featureManager = featureManager;
+        _breachedPasswords = breachedPasswords;
     }
 
     public async Task Handle(ChangePasswordCommand command, CancellationToken cancellationToken)
@@ -63,7 +70,11 @@ internal sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePassw
             throw new ValidationFailedException("The password change request is invalid.", failures);
         }
 
+        await PasswordRules.RequireNotBreachedAsync(
+            newPassword, _featureManager, _breachedPasswords, "The password change request is invalid.", cancellationToken);
+
         appUser.PasswordHash = _passwordHasher.Hash(newPassword);
+        appUser.PasswordChangedAtUtc = DateTime.UtcNow;
         await _appUserRepository.SaveChangesAsync(cancellationToken);
 
         var keptTokenHash = string.IsNullOrEmpty(command.CurrentRefreshToken)

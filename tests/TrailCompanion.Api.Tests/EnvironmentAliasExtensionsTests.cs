@@ -1,5 +1,6 @@
 using TrailCompanion.Api.Common.Configuration.Extensions;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
 using Npgsql;
 
 namespace TrailCompanion.Api.Tests;
@@ -82,6 +83,27 @@ public class EnvironmentAliasVariableTests
         finally
         {
             Environment.SetEnvironmentVariable("FEATURE_REGISTRATION_ENABLED", null);
+        }
+    }
+
+    [Fact]
+    public void AddEnvironmentAliases_MapsTheMigrationsUrlToItsOwnConnectionString()
+    {
+        Environment.SetEnvironmentVariable("DATABASE_URL_MIGRATIONS", "postgresql://owner:pw@ep-x.neon.tech/trailcompanion");
+
+        try
+        {
+            var builder = WebApplication.CreateBuilder();
+            builder.AddEnvironmentAliases();
+
+            var connection = new NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("MigrationsConnection"));
+
+            Assert.Equal("owner", connection.Username);
+            Assert.Equal("ep-x.neon.tech", connection.Host);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DATABASE_URL_MIGRATIONS", null);
         }
     }
 }

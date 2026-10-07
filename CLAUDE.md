@@ -57,7 +57,7 @@ Api -> Application
 - Each project root has `GlobalUsings.cs` and an empty `I<Layer>AssemblyMarker.cs`; assembly scanning targets the marker. Never add a namespace to `GlobalUsings.cs` that generated migrations already import (`Microsoft.EntityFrameworkCore`): CS8933.
 - DI: one static class per concern in `Common/Configuration/DependencyInjection/<Concern>Configuration.cs`, composed by `AddApplication()`, `AddInfrastructure(IConfiguration)`, `AddApi()`. Registrations are explicit (new repository = one line in `RepositoryConfiguration`). Only endpoints and MediatR handlers are found by reflection.
 - CQRS via MediatR. No pipeline behaviours; validation is explicit in the handler.
-- Middleware order is load-bearing: `CorrelationId` -> `ExceptionHandling` -> CORS -> `UseRateLimiter()` -> `UseAuthentication()` -> `UseAuthorization()` -> endpoints.
+- Middleware order is load-bearing: `ForwardedHeaders` -> `CorrelationId` -> `ExceptionHandling` -> CORS -> `UseRateLimiter()` -> `UseAuthentication()` -> `UseAuthorization()` -> endpoints.
 
 # Code Style & Conventions
 
@@ -71,7 +71,7 @@ Api -> Application
 **Endpoints**
 - One `internal sealed` class per endpoint implementing `IEndpoint`, in `Endpoints/<Module>/<Verb><Noun>Endpoint.cs`. A class without `IEndpoint` is silently skipped; if a route 404s, check that first.
 - Routes are constants in `ApiEndpoints.cs`, nested per module under `api`. No raw path strings.
-- Call `RequireAuthorization()` or `AllowAnonymous()` on each endpoint. No route group inherits either. Verify new endpoints return 401 unauthenticated.
+- Call `RequireAuthorization()` or `AllowAnonymous()` on each endpoint. No route group inherits either. Verify new endpoints return 401 unauthenticated. A fallback policy requires authentication anyway; `EndpointAuthorizationTests` must stay green.
 - `WithName(Name)` with `Name = nameof(TheEndpointClass)`; `WithTags(Modules.X)` from `Common/Constants/Modules.cs`.
 - Bodies map only: no validation, no ownership checks, no `try`/`catch`. Injected services carry `[FromServices]`.
 
@@ -93,7 +93,8 @@ Api -> Application
 - Password rules live in `PasswordRules`, shared by register and change password.
 - Login returns the same 401 for unknown username and wrong password and always hashes (`IPasswordHasher.Verify(password, null)`).
 - Usernames go through `UserName.Normalize` (trim, lowercase) before storage and lookup; register also checks `UserName.IsValid`.
-- Rate limits (`RateLimitingConfiguration`, fixed window per IP): login 5/min, refresh 30/min, change password and delete account 5/min.
+- Rate limits (`RateLimitingConfiguration`, fixed window per client address from `X-Forwarded-For`): login 5/min, register 10/min, refresh 30/min, change password and delete account 5/min. Password-hashing endpoints also carry `PasswordHashingEndpoint` metadata (global concurrency cap 2).
+- Per-account quotas live in `AccountLimitRules`.
 - Never put secrets or personal data in the JWT. HTTPS only outside local dev.
 
 **Observability**

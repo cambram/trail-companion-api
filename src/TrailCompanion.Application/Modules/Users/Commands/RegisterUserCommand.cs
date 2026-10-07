@@ -22,15 +22,18 @@ internal sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserC
     private readonly IAppUserRepository _appUserRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IVariantFeatureManager _featureManager;
+    private readonly IBreachedPasswordChecker _breachedPasswords;
 
     public RegisterUserCommandHandler(
         IAppUserRepository appUserRepository,
         IPasswordHasher passwordHasher,
-        IVariantFeatureManager featureManager)
+        IVariantFeatureManager featureManager,
+        IBreachedPasswordChecker breachedPasswords)
     {
         _appUserRepository = appUserRepository;
         _passwordHasher = passwordHasher;
         _featureManager = featureManager;
+        _breachedPasswords = breachedPasswords;
     }
 
     public async Task<AppUserDto> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
@@ -44,6 +47,8 @@ internal sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserC
         var password = command.Request.Password ?? string.Empty;
 
         RequireValid(username, password);
+        await PasswordRules.RequireNotBreachedAsync(
+            password, _featureManager, _breachedPasswords, "The registration request is invalid.", cancellationToken);
 
         var appUser = new AppUser
         {

@@ -5,6 +5,10 @@ namespace TrailCompanion.Api.Common.Configuration.DependencyInjection;
 internal static class CorsConfiguration
 {
     internal const string SpaPolicyName = "SpaCors";
+    internal const string AllowedOriginsSection = "Cors:AllowedOrigins";
+
+    internal static string[] AllowedOrigins(IConfiguration configuration) =>
+        configuration.GetSection(AllowedOriginsSection).Get<string[]>() ?? [];
 
     internal static IServiceCollection AddApiCors(
         this IServiceCollection services,
@@ -13,7 +17,7 @@ internal static class CorsConfiguration
         services.AddCors(options =>
         {
             options.AddPolicy(SpaPolicyName, policy => policy
-                .WithOrigins(configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+                .WithOrigins(AllowedOrigins(configuration))
                 .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
                 .WithHeaders("Authorization", "Content-Type", CorrelationIdMiddleware.HeaderName)
                 .WithExposedHeaders(CorrelationIdMiddleware.HeaderName)

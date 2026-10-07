@@ -109,4 +109,16 @@ public class CreateNutritionItemCommandHandlerTests
 
         Assert.Contains(exception.Failures, f => f.Code == "InvalidSize");
     }
+
+    [Fact]
+    public async Task Handle_AtTheLibraryLimit_ThrowsAndStoresNothing()
+    {
+        _nutrition.GetAllAsync(_appUserId, Arg.Any<CancellationToken>())
+            .Returns(Enumerable.Range(0, AccountLimitRules.MaxNutritionItems).Select(_ => new NutritionItems()).ToList());
+
+        await Assert.ThrowsAsync<ValidationFailedException>(() =>
+            CreateHandler().Handle(new CreateNutritionItemCommand(_appUserId, Request()), CancellationToken.None));
+
+        await _nutrition.DidNotReceive().AddAsync(Arg.Any<NutritionItems>(), Arg.Any<CancellationToken>());
+    }
 }
