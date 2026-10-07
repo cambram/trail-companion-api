@@ -43,7 +43,9 @@ internal sealed class LoginUserCommandHandler : IRequestHandler<LoginUserCommand
     {
         var username = UserName.Normalize(command.Request.Username);
 
-        if (_loginThrottle.IsBlocked(username))
+        var throttled = UserName.IsValid(username);
+
+        if (throttled && _loginThrottle.IsBlocked(username))
         {
             throw new UnauthorizedException("Too many failed attempts. Try again in 15 minutes.");
         }
@@ -54,11 +56,18 @@ internal sealed class LoginUserCommandHandler : IRequestHandler<LoginUserCommand
 
         if (appUser is null || !passwordMatches)
         {
-            _loginThrottle.RecordFailure(username);
+            if (throttled)
+            {
+                _loginThrottle.RecordFailure(username);
+            }
+
             throw new UnauthorizedException("Invalid username or password.");
         }
 
-        _loginThrottle.Reset(username);
+        if (throttled)
+        {
+            _loginThrottle.Reset(username);
+        }
 
         return await AuthTokenSession.StartAsync(
             appUser.Id,

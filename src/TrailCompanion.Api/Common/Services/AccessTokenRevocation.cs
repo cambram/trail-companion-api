@@ -25,8 +25,13 @@ internal static class AccessTokenRevocation
             return;
         }
 
+        if (context.SecurityToken is not JsonWebToken token)
+        {
+            context.Fail("Unsupported token type.");
+            return;
+        }
+
         if (appUser.PasswordChangedAtUtc is { } changedAtUtc
-            && context.SecurityToken is JsonWebToken token
             && token.IssuedAt < TruncateToSeconds(changedAtUtc))
         {
             context.Fail("Token predates the last password change.");

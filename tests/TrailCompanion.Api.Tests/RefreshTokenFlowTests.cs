@@ -175,6 +175,21 @@ public class RefreshTokenFlowTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
+    public async Task Login_FromAForeignOrigin_IsRejected()
+    {
+        using var factory = CreateFactory();
+        using var client = CreateClient(factory);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, Route(ApiEndpoints.Users.LoginUser))
+        {
+            Content = JsonContent.Create(new LoginUserRequest("runner", Password))
+        };
+        request.Headers.Add("Origin", "https://evil.example");
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(request)).StatusCode);
+    }
+
+    [Fact]
     public async Task Logout_FromAForeignOrigin_IsRejectedAndTheSessionSurvives()
     {
         using var factory = CreateFactory();

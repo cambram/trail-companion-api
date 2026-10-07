@@ -188,7 +188,7 @@ In deployed environments, supply it as the environment variable `Jwt__Key` (or y
 
 `Cors:AllowedOrigins` is a string array. Development allows `http://localhost:5173`. Production must list the real frontend origin(s), exact scheme plus host with no trailing slash; the base `appsettings.json` default is empty, meaning no browser origin is allowed. The policy calls `AllowCredentials()` so the refresh cookie is sent, which is only safe because origins are an explicit list, never a wildcard.
 
-`DATABASE_URL_MIGRATIONS` (`ConnectionStrings:MigrationsConnection`) is the owner role, a direct URL, used for migrations only. The app itself connects with `DATABASE_URL` as a non-owner role.
+`DATABASE_URL_MIGRATIONS` (`ConnectionStrings:MigrationsConnection`) is the owner role, a direct URL, used for migrations only. The app itself connects with `DATABASE_URL_POOLED` (falling back to `DATABASE_URL`) as a non-owner role.
 
 ### Registration feature flag
 

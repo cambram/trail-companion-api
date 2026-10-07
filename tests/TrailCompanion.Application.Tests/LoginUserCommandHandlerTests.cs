@@ -109,6 +109,22 @@ public class LoginUserCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WithAnInvalidUsername_DoesNotRecordAThrottleEntry()
+    {
+        var name = new string('a', 33);
+
+        for (var i = 0; i < LoginThrottle.MaxFailures + 2; i++)
+        {
+            await Assert.ThrowsAsync<UnauthorizedException>(() => CreateHandler().Handle(
+                new LoginUserCommand(new LoginUserRequest(name, "wrong")),
+                CancellationToken.None));
+        }
+
+        Assert.False(_throttle.IsBlocked(name));
+        _passwordHasher.Received(LoginThrottle.MaxFailures + 2).Verify("wrong", null);
+    }
+
+    [Fact]
     public async Task Handle_WithAWrongPassword_RecordsAFailure()
     {
         for (var i = 0; i < LoginThrottle.MaxFailures - 1; i++)

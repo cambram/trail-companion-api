@@ -14,6 +14,8 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.AddApi();
 
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 64 * 1024);
+
 var app = builder.Build();
 
 // ponytail: migrate on boot; move to a pre-deploy job if you ever run >1 instance
