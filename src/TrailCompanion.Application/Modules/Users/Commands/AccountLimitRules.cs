@@ -7,6 +7,7 @@ internal static class AccountLimitRules
     public const int MaxItemsPerSegment = 50;
     public const int MaxItemsPerAidStation = 50;
     public const int MaxNutritionItems = 500;
+    public const int MaxCrewPerRace = 20;
 
     public static void RequireRoom(int existing, int max, string what)
     {
