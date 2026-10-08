@@ -36,7 +36,7 @@ public class RemoveCrewMemberCommandHandlerTests
     {
         await Remove(_ownerId, _crewId);
 
-        _crew.Received(1).Delete(Arg.Is<RaceCrewMembers>(m => m.AppUserId == _crewId));
+        _crew.Received(1).Delete(Arg.Is<RaceCrewMembers>(m => m!.AppUserId == _crewId));
         await _crew.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -45,7 +45,7 @@ public class RemoveCrewMemberCommandHandlerTests
     {
         await Remove(_crewId, _crewId);
 
-        _crew.Received(1).Delete(Arg.Is<RaceCrewMembers>(m => m.AppUserId == _crewId));
+        _crew.Received(1).Delete(Arg.Is<RaceCrewMembers>(m => m!.AppUserId == _crewId));
     }
 
     [Fact]
