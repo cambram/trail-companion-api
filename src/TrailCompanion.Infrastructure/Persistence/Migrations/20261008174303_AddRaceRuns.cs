@@ -5,10 +5,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace TrailCompanion.Infrastructure.Persistence.Migrations
 {
-    /// <inheritdoc />
     public partial class AddRaceRuns : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -104,7 +102,6 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                 column: "StartedBy");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
