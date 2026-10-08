@@ -33,6 +33,13 @@ Base path is `api`. Route constants live in `src/TrailCompanion.Api/Endpoints/Ap
 | POST | `/api/races/join` | Bearer required, rate limited | Join a race's crew by PIN (read-only access) |
 | GET | `/api/races/{raceId}/crew` | Bearer required | List a race's crew (owner or crew) |
 | DELETE | `/api/races/{raceId}/crew/{memberId}` | Bearer required | Remove a crew member (owner removes anyone, crew remove themselves) |
+| GET | `/api/races/{raceId}/run` | Bearer required, owner or crew; no rate limit policy | Return run state |
+| POST | `/api/races/{raceId}/run/start` | Bearer required, owner or crew; no rate limit policy | Start a run |
+| PATCH | `/api/races/{raceId}/run` | Bearer required, owner or crew; no rate limit policy | Move the run start |
+| DELETE | `/api/races/{raceId}/run` | Bearer required, owner or crew; no rate limit policy | Undo the start |
+| POST | `/api/races/{raceId}/run/arrivals` | Bearer required, owner or crew; no rate limit policy | Record an arrival |
+| PATCH | `/api/races/{raceId}/run/arrivals/{checkpoint}` | Bearer required, owner or crew; no rate limit policy | Correct an arrival |
+| DELETE | `/api/races/{raceId}/run/arrivals/{checkpoint}` | Bearer required, owner or crew; no rate limit policy | Undo an arrival |
 | POST | `/api/races/{id}/pin` | Bearer required | Regenerate a race's join PIN (owner only) |
 | POST | `/api/races/{raceId}/segments` | Bearer required | Create segment |
 | PUT, DELETE | `/api/races/{raceId}/segments/{id}` | Bearer required | Update / delete segment |
@@ -181,6 +188,7 @@ Cross-site requests: login, refresh and logout reject any `Origin` header not in
 | `Jwt:AccessTokenLifetimeMinutes` | `15` | In `appsettings.json` |
 | `Jwt:RefreshTokenLifetimeDays` | `30` | `JwtOptions` default |
 | `Jwt:Key` | empty | **Secret. Never commit.** Minimum 32 bytes (UTF-8) |
+| `App:TimeZone` | `Africa/Johannesburg` | In `appsettings.json`. IANA zone used for the race-day check. The API refuses to start if it does not resolve. |
 
 The API **refuses to start** if `Jwt:Key` is under 32 bytes (`ValidateOnStart`). Set it once per machine with user-secrets:
 
