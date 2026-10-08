@@ -17,6 +17,10 @@ internal static class UniqueConstraintConflicts
                 ("AlreadyCrew", "You are already on this race's crew."),
             ["IX_Races_Pin"] =
                 ("PinTaken", "Could not assign a race PIN. Try again."),
+            ["IX_RaceRuns_RaceId"] =
+                ("RunExists", "This race has already been started."),
+            ["IX_Arrivals_RaceRunId_AidStationId"] =
+                ("ArrivalExists", "That checkpoint has already been recorded."),
         }.ToFrozenDictionary();
 
     public static bool TryTranslate(string? constraintName, out (string Code, string Message) conflict)
