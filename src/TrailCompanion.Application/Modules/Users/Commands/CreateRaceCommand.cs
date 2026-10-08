@@ -1,3 +1,4 @@
+using TrailCompanion.Application.Modules.Users;
 using TrailCompanion.Application.Modules.Users.Dtos;
 using TrailCompanion.Domain.Modules.Users.Entities;
 using TrailCompanion.Domain.Modules.Users.Repositories;
@@ -42,7 +43,8 @@ internal sealed class CreateRaceCommandHandler : IRequestHandler<CreateRaceComma
             AppUserId = command.AppUserId,
             Name = name,
             StartTime = command.Request.StartTime,
-            RaceDate = command.Request.RaceDate
+            RaceDate = command.Request.RaceDate,
+            Pin = await RacePins.GenerateUniqueAsync(_racesRepository, cancellationToken)
         };
 
         if (command.Request.Target is { } target)
