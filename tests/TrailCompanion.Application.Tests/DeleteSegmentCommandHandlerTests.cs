@@ -9,10 +9,11 @@ namespace TrailCompanion.Application.Tests;
 public class DeleteSegmentCommandHandlerTests
 {
     private readonly ISegmentsRepository _segments = Substitute.For<ISegmentsRepository>();
+    private readonly IRaceRunsRepository _runs = Substitute.For<IRaceRunsRepository>();
     private readonly Guid _appUserId = Guid.NewGuid();
     private readonly Guid _raceId = Guid.NewGuid();
 
-    private DeleteSegmentCommandHandler CreateHandler() => new(_segments);
+    private DeleteSegmentCommandHandler CreateHandler() => new(_segments, _runs);
 
     [Fact]
     public async Task Handle_WhenSegmentExists_DeletesAndSaves()
@@ -35,6 +36,22 @@ public class DeleteSegmentCommandHandlerTests
         await Assert.ThrowsAsync<NotFoundException>(() =>
             CreateHandler().Handle(new DeleteSegmentCommand(_appUserId, _raceId, segmentId), CancellationToken.None));
 
+        _segments.DidNotReceive().Delete(Arg.Any<Segments>());
+        await _segments.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _runs.DidNotReceive().HasActiveRunAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhileARunIsActive_ThrowsRunInProgressAndDeletesNothing()
+    {
+        var segment = new Segments { Id = Guid.NewGuid(), RaceId = _raceId, Name = "A" };
+        _segments.GetByIdAsync(_appUserId, _raceId, segment.Id, Arg.Any<CancellationToken>()).Returns(segment);
+        _runs.HasActiveRunAsync(_raceId, Arg.Any<CancellationToken>()).Returns(true);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() =>
+            CreateHandler().Handle(new DeleteSegmentCommand(_appUserId, _raceId, segment.Id), CancellationToken.None));
+
+        Assert.Equal("RunInProgress", exception.Code);
         _segments.DidNotReceive().Delete(Arg.Any<Segments>());
         await _segments.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }

@@ -23,13 +23,16 @@ internal sealed class CreateAidStationCommandHandler : IRequestHandler<CreateAid
 {
     private readonly ISegmentsRepository _segmentsRepository;
     private readonly IAidStationsRepository _aidStationsRepository;
+    private readonly IRaceRunsRepository _runsRepository;
 
     public CreateAidStationCommandHandler(
         ISegmentsRepository segmentsRepository,
-        IAidStationsRepository aidStationsRepository)
+        IAidStationsRepository aidStationsRepository,
+        IRaceRunsRepository runsRepository)
     {
         _segmentsRepository = segmentsRepository;
         _aidStationsRepository = aidStationsRepository;
+        _runsRepository = runsRepository;
     }
 
     public async Task<AidStationDto> Handle(CreateAidStationCommand command, CancellationToken cancellationToken)
@@ -45,6 +48,8 @@ internal sealed class CreateAidStationCommandHandler : IRequestHandler<CreateAid
 
         _ = await _segmentsRepository.GetByIdAsync(command.AppUserId, command.RaceId, segmentId, cancellationToken)
             ?? throw new NotFoundException(nameof(Segments), segmentId);
+
+        await RunGuard.RequireNoActiveRunAsync(_runsRepository, command.RaceId, cancellationToken);
 
         if (await _aidStationsRepository.GetBySegmentIdAsync(
                 command.AppUserId, command.RaceId, segmentId, cancellationToken) is not null)

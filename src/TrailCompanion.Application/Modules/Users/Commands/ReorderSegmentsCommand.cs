@@ -22,10 +22,12 @@ public sealed class ReorderSegmentsCommand : IRequest
 internal sealed class ReorderSegmentsCommandHandler : IRequestHandler<ReorderSegmentsCommand>
 {
     private readonly ISegmentsRepository _segmentsRepository;
+    private readonly IRaceRunsRepository _runsRepository;
 
-    public ReorderSegmentsCommandHandler(ISegmentsRepository segmentsRepository)
+    public ReorderSegmentsCommandHandler(ISegmentsRepository segmentsRepository, IRaceRunsRepository runsRepository)
     {
         _segmentsRepository = segmentsRepository;
+        _runsRepository = runsRepository;
     }
 
     public async Task Handle(ReorderSegmentsCommand command, CancellationToken cancellationToken)
@@ -41,6 +43,8 @@ internal sealed class ReorderSegmentsCommandHandler : IRequestHandler<ReorderSeg
 
         var existing = await _segmentsRepository.GetByRaceIdAsync(command.AppUserId, command.RaceId, cancellationToken);
         ReorderRequestRules.RequireComplete(segments.Count, existing.Count);
+
+        await RunGuard.RequireNoActiveRunAsync(_runsRepository, command.RaceId, cancellationToken);
 
         for (var i = 0; i < segments.Count; i++)
         {
