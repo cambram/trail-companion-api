@@ -48,14 +48,18 @@ public record RaceDetailDto(
     TimeOnly? StartTime,
     DateTime CreatedAtUtc,
     IReadOnlyList<SegmentDetailDto> Segments,
-    DateOnly? RaceDate)
+    DateOnly? RaceDate,
+    RaceRole Role,
+    string? Pin)
 {
-    public static RaceDetailDto FromEntity(Races race, IReadOnlyList<SegmentDetailDto> segments) => new(
+    public static RaceDetailDto FromEntity(Races race, IReadOnlyList<SegmentDetailDto> segments, RaceRole role) => new(
         race.Id,
         race.Name,
         race.Target,
         race.StartTime,
         race.CreatedAtUtc,
         segments,
-        race.RaceDate);
+        race.RaceDate,
+        role,
+        role == RaceRole.Owner ? race.Pin : null);
 }

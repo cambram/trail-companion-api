@@ -25,8 +25,11 @@ internal sealed class GetRacesQueryHandler : IRequestHandler<GetRacesQuery, IRea
 
     public async Task<IReadOnlyList<RaceDto>> Handle(GetRacesQuery request, CancellationToken cancellationToken)
     {
-        var races = await _racesRepository.GetAllAsync(request.AppUserId, cancellationToken);
+        var owned = await _racesRepository.GetAllAsync(request.AppUserId, cancellationToken);
+        var crewed = await _racesRepository.GetCrewedAsync(request.AppUserId, cancellationToken);
 
-        return races.Select(RaceDto.FromEntity).ToList();
+        return owned.Select(r => RaceDto.FromEntity(r, RaceRole.Owner))
+            .Concat(crewed.Select(r => RaceDto.FromEntity(r, RaceRole.Crew)))
+            .ToList();
     }
 }

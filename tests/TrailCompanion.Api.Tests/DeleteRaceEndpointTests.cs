@@ -42,7 +42,7 @@ public class DeleteRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var response = await client.DeleteAsync(DeleteRoute(race.Id));
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        var remaining = await client.GetFromJsonAsync<List<RaceDto>>(Route(ApiEndpoints.Users.GetRaces));
+        var remaining = await client.GetFromJsonAsync<List<RaceDto>>(Route(ApiEndpoints.Users.GetRaces), TestJson.Options);
         Assert.Empty(remaining!);
     }
 
@@ -59,7 +59,7 @@ public class DeleteRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var response = await other.DeleteAsync(DeleteRoute(race.Id));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        var remaining = await owner.GetFromJsonAsync<List<RaceDto>>(Route(ApiEndpoints.Users.GetRaces));
+        var remaining = await owner.GetFromJsonAsync<List<RaceDto>>(Route(ApiEndpoints.Users.GetRaces), TestJson.Options);
         Assert.Single(remaining!);
     }
 
@@ -78,7 +78,7 @@ public class DeleteRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
     private static async Task<RaceDto> CreateRace(HttpClient client, string name)
     {
         var response = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.CreateRace), new CreateRaceRequest(name, null));
-        return (await response.Content.ReadFromJsonAsync<RaceDto>())!;
+        return (await response.Content.ReadFromJsonAsync<RaceDto>(TestJson.Options))!;
     }
 
     private static async Task SignIn(HttpClient client)

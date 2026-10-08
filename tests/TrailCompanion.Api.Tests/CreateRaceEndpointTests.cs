@@ -45,7 +45,7 @@ public class CreateRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var response = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.CreateRace), new CreateRaceRequest("UTMB", null));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var race = await response.Content.ReadFromJsonAsync<RaceDto>();
+        var race = await response.Content.ReadFromJsonAsync<RaceDto>(TestJson.Options);
         Assert.Equal("UTMB", race!.Name);
         Assert.Equal(60, race.Target);
         Assert.Null(race.RaceDate);

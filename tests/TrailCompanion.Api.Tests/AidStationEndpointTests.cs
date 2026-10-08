@@ -197,7 +197,7 @@ public class AidStationEndpointTests : IClassFixture<PostgresDatabaseFixture>
     private static async Task<RaceDto> CreateRace(HttpClient client)
     {
         var response = await client.PostAsJsonAsync(Route(ApiEndpoints.Users.CreateRace), new CreateRaceRequest("UTCT", null));
-        return (await response.Content.ReadFromJsonAsync<RaceDto>())!;
+        return (await response.Content.ReadFromJsonAsync<RaceDto>(TestJson.Options))!;
     }
 
     private static async Task<SegmentDto> CreateSegment(HttpClient client, Guid raceId)

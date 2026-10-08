@@ -20,8 +20,8 @@ public class GetRaceQueryHandlerTests
 
     public GetRaceQueryHandlerTests()
     {
-        _race = new Races { Id = Guid.NewGuid(), AppUserId = _appUserId, Name = "UTMB", Target = 90 };
-        _races.GetByIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns(_race);
+        _race = new Races { Id = Guid.NewGuid(), AppUserId = _appUserId, Name = "UTMB", Target = 90, Pin = "482913" };
+        _races.GetAccessibleByIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns(_race);
         _segments.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([]);
         _items.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([]);
         _nutrition.GetAllAsync(_appUserId, Arg.Any<CancellationToken>()).Returns([]);
@@ -33,6 +33,37 @@ public class GetRaceQueryHandlerTests
 
     private static NutritionItems Nutrition(string name, int? carbs, NutritionType type = NutritionType.Gel, int? size = null) =>
         new() { Id = Guid.NewGuid(), Name = name, Type = type, Carbs = carbs, Size = size };
+
+    [Fact]
+    public async Task Handle_ForTheOwner_ReturnsOwnerRoleAndPin()
+    {
+        var result = await CreateHandler().Handle(new GetRaceQuery(_appUserId, _race.Id), CancellationToken.None);
+
+        Assert.Equal(RaceRole.Owner, result.Role);
+        Assert.Equal("482913", result.Pin);
+    }
+
+    [Fact]
+    public async Task Handle_ForCrew_ReadsChildrenAndLibraryWithTheOwnersIdAndHidesThePin()
+    {
+        var crewId = Guid.NewGuid();
+        var segment = new Segments { Id = Guid.NewGuid(), RaceId = _race.Id, Position = 1, Name = "A" };
+        var gel = Nutrition("Gel", 40);
+        _races.GetAccessibleByIdAsync(crewId, _race.Id, Arg.Any<CancellationToken>()).Returns(_race);
+        _segments.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([segment]);
+        _nutrition.GetAllAsync(_appUserId, Arg.Any<CancellationToken>()).Returns([gel]);
+        _items.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns(
+        [
+            new Items { Id = Guid.NewGuid(), SegmentId = segment.Id, Position = 1, NutritionItemId = gel.Id }
+        ]);
+
+        var result = await CreateHandler().Handle(new GetRaceQuery(crewId, _race.Id), CancellationToken.None);
+
+        Assert.Equal(RaceRole.Crew, result.Role);
+        Assert.Null(result.Pin);
+        Assert.Equal(["Gel"], Assert.Single(result.Segments).Items.Select(i => i.Name));
+        await _nutrition.DidNotReceive().GetAllAsync(crewId, Arg.Any<CancellationToken>());
+    }
 
     [Fact]
     public async Task Handle_GroupsItemsUnderTheirSegmentsInOrderWithLibraryMacros()
@@ -168,7 +199,7 @@ public class GetRaceQueryHandlerTests
     public async Task Handle_WhenRaceMissingOrNotOwned_ThrowsNotFoundAndReadsNoChildren()
     {
         var raceId = Guid.NewGuid();
-        _races.GetByIdAsync(_appUserId, raceId, Arg.Any<CancellationToken>()).Returns((Races?)null);
+        _races.GetAccessibleByIdAsync(_appUserId, raceId, Arg.Any<CancellationToken>()).Returns((Races?)null);
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             CreateHandler().Handle(new GetRaceQuery(_appUserId, raceId), CancellationToken.None));
