@@ -11,6 +11,9 @@
 - `NutritionItems`: the user's nutrition library, owned by `AppUserId`. `Name` (unique per user), `Type` (`Gel`, `Liquid`, `Solid`, `Pill`, stored as text), nullable `Size` and macros (`Carbs`, `Calories`, `Caffeine`, `Sodium`, `Potassium`, `Magnesium`, `Calcium`). `Sodium`, `Potassium`, `Magnesium` and `Calcium` are `decimal?` at `HasPrecision(8, 2)`; the rest are `int?`. `Size`'s unit is implied by `Type`. Null means unknown, not zero.
 - `AidStations`: belong to a segment (the segment they precede), at most one per segment via the deferrable `UQ_AidStations_SegmentId`. `Name`, `Notes`, `Kit` (jsonb list of `Label` + `Certainty` `Planned`/`Maybe`). No duration. Moving into an occupied segment swaps.
 - `AidStationItems`: belong to an aid station, reference a `NutritionItems`, carry `Position`. Their carbs count toward the station's segment on the client.
+- `RaceCrewMembers`: belongs to a race and an `AppUser`, unique per pair, both foreign keys cascade. Crew have read-only access to the race.
+- `Races.Pin`: 6 digits, unique, regenerable. Crew join with it.
+- Race reads (`GetRaceQuery`, `GetRacesQuery`, `GetRaceCrewQuery`) accept owner or crew via `GetAccessibleByIdAsync` and read children with the race's `AppUserId`. Every write stays owner-only.
 - `Races` and `NutritionItems` carry `AppUserId`. Segments and items are owned through the chain: handlers verify race and segment via repositories that take `appUserId`.
 - Entity classes are plural (`Races`, `Segments`, `Items`). Race features currently live in the `Users` module folders across all layers.
 - A library item in use cannot be deleted: `DeleteNutritionItemCommand` calls `CountUsagesAsync`, which counts `Items` and `AidStationItems`, and throws `ConflictException`. Both foreign keys are `Restrict`.
@@ -93,7 +96,7 @@ Api -> Application
 - Password rules live in `PasswordRules`, shared by register and change password.
 - Login returns the same 401 for unknown username and wrong password and always hashes (`IPasswordHasher.Verify(password, null)`).
 - Usernames go through `UserName.Normalize` (trim, lowercase) before storage and lookup; register also checks `UserName.IsValid`.
-- Rate limits (`RateLimitingConfiguration`, fixed window per client address from `X-Forwarded-For`): login 5/min, register 10/min, refresh 30/min, change password and delete account 5/min. Password-hashing endpoints also carry `PasswordHashingEndpoint` metadata (global concurrency cap 2).
+- Rate limits (`RateLimitingConfiguration`, fixed window per client address from `X-Forwarded-For`): login 5/min, register 10/min, refresh 30/min, join 10/min, change password and delete account 5/min. Password-hashing endpoints also carry `PasswordHashingEndpoint` metadata (global concurrency cap 2).
 - Per-account quotas live in `AccountLimitRules`.
 - Never put secrets or personal data in the JWT. HTTPS only outside local dev.
 

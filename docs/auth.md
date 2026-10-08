@@ -30,6 +30,10 @@ Base path is `api`. Route constants live in `src/TrailCompanion.Api/Endpoints/Ap
 | POST | `/api/users/password` | Bearer required, rate limited | Change password (current password required) |
 | GET, POST | `/api/races` | Bearer required | List / create races |
 | GET, DELETE | `/api/races/{id}` | Bearer required | Read / delete a race |
+| POST | `/api/races/join` | Bearer required, rate limited | Join a race's crew by PIN (read-only access) |
+| GET | `/api/races/{raceId}/crew` | Bearer required | List a race's crew (owner or crew) |
+| DELETE | `/api/races/{raceId}/crew/{memberId}` | Bearer required | Remove a crew member (owner removes anyone, crew remove themselves) |
+| POST | `/api/races/{id}/pin` | Bearer required | Regenerate a race's join PIN (owner only) |
 | POST | `/api/races/{raceId}/segments` | Bearer required | Create segment |
 | PUT, DELETE | `/api/races/{raceId}/segments/{id}` | Bearer required | Update / delete segment |
 | POST | `/api/races/{raceId}/segments/{segmentId}/items` | Bearer required | Attach a library item to a segment |
@@ -129,7 +133,7 @@ Body `{ "currentPassword": "...", "newPassword": "..." }`. Rate limited, 5 per m
 
 Body `{ "password": "..." }`. Rate limited, 5 per minute per client. `401` ProblemDetails on a wrong password. On success returns `204` and clears the refresh cookie.
 
-Deletion is a **permanent hard delete**, with no grace period or undo: the user row and all their races, segments, items, aid stations, aid station items, nutrition items and refresh tokens are removed in one transaction. Access tokens of a deleted user are rejected with `401` (previously `404`).
+Deletion is a **permanent hard delete**, with no grace period or undo: the user row and all their races, segments, items, aid stations, aid station items, nutrition items, crew memberships (the user's own, plus every membership on races they owned) and refresh tokens are removed in one transaction. Access tokens of a deleted user are rejected with `401` (previously `404`).
 
 ## Token
 
@@ -290,6 +294,7 @@ Fixed window of 1 minute, partitioned by client address (see below). Exceeding r
 | `login` | `POST /api/users/login` | 5 |
 | `refresh` | `POST /api/users/refresh` | 30 |
 | `account` | `POST /api/users/password`, `DELETE /api/users/me` | 5 |
+| `join` | `POST /api/races/join` | 10 |
 
 - No `Retry-After` header is configured.
 
@@ -409,7 +414,7 @@ Validation error codes to map to UI messages:
 - `PasswordTooShort` (min 8 characters)
 - `PasswordTooLong` (max 128 characters)
 - `PasswordBreached`
-- `LimitReached` (per-account quota on the create endpoints: 100 races per account, 100 segments per race, 50 items per segment, 50 items per aid station, 500 nutrition items)
+- `LimitReached` (per-account quota on the create endpoints: 100 races per account, 100 segments per race, 50 items per segment, 50 items per aid station, 500 nutrition items, 20 crew per race)
 - `PasswordUnchanged`
 - `FirstNameTooLong`, `LastNameTooLong` (max 100 characters)
 
