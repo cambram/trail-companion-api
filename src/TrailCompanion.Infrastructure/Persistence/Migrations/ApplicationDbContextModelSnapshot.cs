@@ -251,6 +251,34 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.RaceCrewMembers", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RaceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("RaceId", "AppUserId")
+                        .IsUnique();
+
+                    b.ToTable("RaceCrewMembers", (string)null);
+                });
+
             modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Races", b =>
                 {
                     b.Property<Guid>("Id")
@@ -267,6 +295,11 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Pin")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
 
                     b.Property<DateOnly?>("RaceDate")
                         .HasColumnType("date");
@@ -286,8 +319,13 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("AppUserId");
 
+                    b.HasIndex("Pin")
+                        .IsUnique();
+
                     b.ToTable("Races", null, t =>
                         {
+                            t.HasCheckConstraint("CK_Races_Pin", "\"Pin\" ~ '^[0-9]{6}$'");
+
                             t.HasCheckConstraint("CK_Races_Target", "\"Target\" >= 0");
                         });
                 });
@@ -428,6 +466,21 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                     b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.AppUser", null)
                         .WithMany()
                         .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.RaceCrewMembers", b =>
+                {
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.Races", null)
+                        .WithMany()
+                        .HasForeignKey("RaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

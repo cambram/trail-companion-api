@@ -28,6 +28,35 @@ public class RacesRepository : Repository, IRacesRepository
             .OrderBy(r => r.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
+    public Task<Races?> GetAccessibleByIdAsync(
+        Guid appUserId,
+        Guid id,
+        CancellationToken cancellationToken = default) =>
+        Context.Set<Races>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                r => r.Id == id
+                     && (r.AppUserId == appUserId
+                         || Context.Set<RaceCrewMembers>().Any(c => c.RaceId == id && c.AppUserId == appUserId)),
+                cancellationToken);
+
+    public async Task<IReadOnlyList<Races>> GetCrewedAsync(
+        Guid appUserId,
+        CancellationToken cancellationToken = default) =>
+        await Context.Set<Races>()
+            .AsNoTracking()
+            .Where(r => Context.Set<RaceCrewMembers>().Any(c => c.RaceId == r.Id && c.AppUserId == appUserId))
+            .OrderBy(r => r.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+    public Task<Races?> GetByPinAsync(string pin, CancellationToken cancellationToken = default) =>
+        Context.Set<Races>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Pin == pin, cancellationToken);
+
+    public Task<bool> PinExistsAsync(string pin, CancellationToken cancellationToken = default) =>
+        Context.Set<Races>().AnyAsync(r => r.Pin == pin, cancellationToken);
+
     public async Task AddAsync(Races race, CancellationToken cancellationToken = default) =>
         await AddAsync<Races>(race, cancellationToken);
 

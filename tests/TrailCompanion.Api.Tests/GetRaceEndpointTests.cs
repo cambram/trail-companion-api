@@ -76,7 +76,7 @@ public class GetRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
         await SignIn(client);
         var race = await Post<RaceDto>(client, Route(ApiEndpoints.Users.CreateRace), new CreateRaceRequest("UTMB", null));
 
-        var detail = await client.GetFromJsonAsync<RaceDetailDto>(GetRoute(race.Id));
+        var detail = await client.GetFromJsonAsync<RaceDetailDto>(GetRoute(race.Id), TestJson.Options);
 
         Assert.Empty(detail!.Segments);
     }

@@ -45,7 +45,7 @@ public class GetRacesEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var response = await owner.GetAsync(Route(ApiEndpoints.Users.GetRaces));
 
         response.EnsureSuccessStatusCode();
-        var races = await response.Content.ReadFromJsonAsync<List<RaceDto>>();
+        var races = await response.Content.ReadFromJsonAsync<List<RaceDto>>(TestJson.Options);
         var race = Assert.Single(races!);
         Assert.Equal("UTMB", race.Name);
         Assert.Equal(90, race.Target);

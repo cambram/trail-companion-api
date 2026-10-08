@@ -10,6 +10,7 @@ internal static class RepositoryConfiguration
     {
         services.AddScoped<IAppUserRepository, AppUserRepository>();
         services.AddScoped<IRacesRepository, RacesRepository>();
+        services.AddScoped<IRaceCrewMembersRepository, RaceCrewMembersRepository>();
         services.AddScoped<ISegmentsRepository, SegmentsRepository>();
         services.AddScoped<IItemsRepository, ItemsRepository>();
         services.AddScoped<IAidStationsRepository, AidStationsRepository>();

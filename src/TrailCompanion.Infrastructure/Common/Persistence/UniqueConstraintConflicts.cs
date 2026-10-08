@@ -13,6 +13,10 @@ internal static class UniqueConstraintConflicts
                 ("DuplicateNutritionItem", "You already have a nutrition item with this name."),
             ["UQ_AidStations_SegmentId"] =
                 ("SegmentHasAidStation", "This segment already has an aid station."),
+            ["IX_RaceCrewMembers_RaceId_AppUserId"] =
+                ("AlreadyCrew", "You are already on this race's crew."),
+            ["IX_Races_Pin"] =
+                ("PinTaken", "Could not assign a race PIN. Try again."),
         }.ToFrozenDictionary();
 
     public static bool TryTranslate(string? constraintName, out (string Code, string Message) conflict)

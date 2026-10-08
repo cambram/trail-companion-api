@@ -81,4 +81,42 @@ public class CreateRaceCommandHandlerTests
 
         await _repository.DidNotReceive().AddAsync(Arg.Any<Races>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Handle_AssignsASixDigitPin()
+    {
+        await CreateHandler().Handle(
+            new CreateRaceCommand(_appUserId, new CreateRaceRequest("UTMB", null)),
+            CancellationToken.None);
+
+        await _repository.Received(1).AddAsync(
+            Arg.Is<Races>(r => r != null && r.Pin.Length == 6 && r.Pin.All(char.IsAsciiDigit)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenAGeneratedPinIsTaken_TriesAnother()
+    {
+        _repository.PinExistsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true, false);
+
+        await CreateHandler().Handle(
+            new CreateRaceCommand(_appUserId, new CreateRaceRequest("UTMB", null)),
+            CancellationToken.None);
+
+        await _repository.Received(2).PinExistsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _repository.Received(1).AddAsync(Arg.Any<Races>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenEveryAttemptIsTaken_ThrowsConflictAndStoresNothing()
+    {
+        _repository.PinExistsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() => CreateHandler().Handle(
+            new CreateRaceCommand(_appUserId, new CreateRaceRequest("UTMB", null)),
+            CancellationToken.None));
+
+        Assert.Equal("PinTaken", exception.Code);
+        await _repository.DidNotReceive().AddAsync(Arg.Any<Races>(), Arg.Any<CancellationToken>());
+    }
 }

@@ -162,7 +162,7 @@ public class ProfileEndpointTests : IClassFixture<PostgresDatabaseFixture>
     private static async Task<Guid> CreateRaceWithSegmentAndItem(HttpClient client)
     {
         var race = await (await client.PostAsJsonAsync(Route(ApiEndpoints.Users.CreateRace), new CreateRaceRequest("UTMB", null)))
-            .Content.ReadFromJsonAsync<RaceDto>();
+            .Content.ReadFromJsonAsync<RaceDto>(TestJson.Options);
         var segment = await (await client.PostAsJsonAsync(
                 Route(ApiEndpoints.Users.CreateSegment.Replace("{raceId:guid}", race!.Id.ToString())),
                 new SegmentRequest("Seg", 30, null, null)))

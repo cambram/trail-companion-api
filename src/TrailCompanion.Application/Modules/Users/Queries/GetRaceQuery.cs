@@ -44,18 +44,21 @@ internal sealed class GetRaceQueryHandler : IRequestHandler<GetRaceQuery, RaceDe
 
     public async Task<RaceDetailDto> Handle(GetRaceQuery request, CancellationToken cancellationToken)
     {
-        var race = await _racesRepository.GetByIdAsync(request.AppUserId, request.RaceId, cancellationToken)
+        var race = await _racesRepository.GetAccessibleByIdAsync(request.AppUserId, request.RaceId, cancellationToken)
             ?? throw new NotFoundException(nameof(Races), request.RaceId);
 
-        var segments = await _segmentsRepository.GetByRaceIdAsync(request.AppUserId, request.RaceId, cancellationToken);
-        var items = await _itemsRepository.GetByRaceIdAsync(request.AppUserId, request.RaceId, cancellationToken);
-        var nutritionItems = await _nutritionItemsRepository.GetAllAsync(request.AppUserId, cancellationToken);
+        var ownerId = race.AppUserId;
+        var role = ownerId == request.AppUserId ? RaceRole.Owner : RaceRole.Crew;
+
+        var segments = await _segmentsRepository.GetByRaceIdAsync(ownerId, request.RaceId, cancellationToken);
+        var items = await _itemsRepository.GetByRaceIdAsync(ownerId, request.RaceId, cancellationToken);
+        var nutritionItems = await _nutritionItemsRepository.GetAllAsync(ownerId, cancellationToken);
 
         // ponytail: whole library loaded per race read, join in SQL if a user's library grows past a few hundred items
         var nutritionById = nutritionItems.ToDictionary(n => n.Id);
 
-        var stations = await _aidStationsRepository.GetByRaceIdAsync(request.AppUserId, request.RaceId, cancellationToken);
-        var stationItems = await _aidStationItemsRepository.GetByRaceIdAsync(request.AppUserId, request.RaceId, cancellationToken);
+        var stations = await _aidStationsRepository.GetByRaceIdAsync(ownerId, request.RaceId, cancellationToken);
+        var stationItems = await _aidStationItemsRepository.GetByRaceIdAsync(ownerId, request.RaceId, cancellationToken);
 
         var itemsBySegment = items
             .Where(i => nutritionById.ContainsKey(i.NutritionItemId))
@@ -76,6 +79,6 @@ internal sealed class GetRaceQueryHandler : IRequestHandler<GetRaceQuery, RaceDe
                 stationBySegment.GetValueOrDefault(s.Id)))
             .ToList();
 
-        return RaceDetailDto.FromEntity(race, segmentDtos);
+        return RaceDetailDto.FromEntity(race, segmentDtos, role);
     }
 }

@@ -2,7 +2,7 @@
 
 Every route, its request and response schema, and where the code lives. Base path is `api`. Route constants are in [ApiEndpoints.cs](../src/TrailCompanion.Api/Endpoints/ApiEndpoints.cs). Auth details are in [auth.md](./auth.md).
 
-Every endpoint except register, login, refresh and logout needs `Authorization: Bearer <token>`. Race, segment, item and aid station routes only ever see the caller's own data; anything else returns 404.
+Every endpoint except register, login, refresh and logout needs `Authorization: Bearer <token>`. Race reads also allow crew (a user who joined a race by PIN), and every write is owner-only: crew get 404 on any write. Anything else the caller does not own or has not joined returns 404.
 
 ## Users
 
@@ -21,11 +21,22 @@ Every endpoint except register, login, refresh and logout needs `Authorization: 
 
 | Method | Route | Description | Request | Response | Endpoint file |
 |---|---|---|---|---|---|
-| GET | `/api/races` | List every race owned by the authenticated user, without segments. | none | 200 [RaceDto](#racedto)[] | [GetRacesEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetRacesEndpoint.cs) |
+| GET | `/api/races` | List every race the caller owns or has joined as crew, without segments. | none | 200 [RaceDto](#racedto)[] | [GetRacesEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetRacesEndpoint.cs) |
 | POST | `/api/races` | Create a race with a name and optional carb target. | [CreateRaceRequest](#createracerequest) | 201 [RaceDto](#racedto); 400 `LimitReached` | [CreateRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/CreateRaceEndpoint.cs) |
-| GET | `/api/races/{id}` | Return one race with its segments and each segment's items. | none | 200 [RaceDetailDto](#racedetaildto) | [GetRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetRaceEndpoint.cs) |
+| GET | `/api/races/{id}` | Return one race with its segments and each segment's items, for the owner or crew. `pin` is set for the owner only. | none | 200 [RaceDetailDto](#racedetaildto) | [GetRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetRaceEndpoint.cs) |
 | PUT | `/api/races/{id}` | Rename an owned race and optionally change its carb target; omitted target is kept. | [CreateRaceRequest](#createracerequest) | 200 [RaceDto](#racedto) | [UpdateRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/UpdateRaceEndpoint.cs) |
 | DELETE | `/api/races/{id}` | Delete an owned race; unknown or foreign races return 404. | none | 204 | [DeleteRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteRaceEndpoint.cs) |
+
+## Crew
+
+Crew are other users who joined a race with its 6-digit PIN. They can read the plan, including the owner's library items it references, and cannot change anything. A race holds at most 20 crew. Joining twice is harmless.
+
+| Method | Route | Description | Request | Response | Endpoint file |
+|---|---|---|---|---|---|
+| POST | `/api/races/join` | Join a race's crew by PIN. | [JoinRaceRequest](#joinracerequest) | 200 [RaceDto](#racedto) with `role: "Crew"`; 400 `InvalidPin` / `OwnRace` / `LimitReached`; 404 unknown PIN; 429 rate limited | [JoinRaceEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/JoinRaceEndpoint.cs) |
+| GET | `/api/races/{raceId}/crew` | List a race's crew, for the owner or a crew member. | none | 200 [CrewMemberDto](#crewmemberdto)[]; 404 | [GetRaceCrewEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetRaceCrewEndpoint.cs) |
+| DELETE | `/api/races/{raceId}/crew/{memberId}` | Remove a crew member. The owner can remove anyone; a crew member can remove only themselves. `memberId` is the member's `appUserId`. | none | 204; 404 | [RemoveCrewMemberEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RemoveCrewMemberEndpoint.cs) |
+| POST | `/api/races/{id}/pin` | Replace the race's PIN; the old PIN stops working. Owner only. | none | 200 [RacePinDto](#racepindto); 404 | [RegenerateRacePinEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RegenerateRacePinEndpoint.cs) |
 
 ## Segments
 
@@ -84,6 +95,7 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 | <a id="updateprofilerequest"></a>UpdateProfileRequest | Names to set; blank or null clears. | `firstName?`, `lastName?` | [UpdateProfileRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/UpdateProfileRequest.cs) |
 | <a id="changepasswordrequest"></a>ChangePasswordRequest | Current password plus the new one. | `currentPassword`, `newPassword` | [ChangePasswordRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ChangePasswordRequest.cs) |
 | <a id="deleteaccountrequest"></a>DeleteAccountRequest | Current password confirming the deletion. | `password` | [DeleteAccountRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/DeleteAccountRequest.cs) |
+| <a id="joinracerequest"></a>JoinRaceRequest | The race PIN; spaces are ignored. | `pin` | [JoinRaceRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/JoinRaceRequest.cs) |
 | <a id="createracerequest"></a>CreateRaceRequest | Race name plus optional carbs-per-hour target, which defaults to sixty. | `name`, `target?`, `startTime?` (`HH:mm:ss`), `raceDate?` (`YYYY-MM-DD`); on PUT, omitting `startTime` or `raceDate` clears it | [CreateRaceRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/CreateRaceRequest.cs) |
 | <a id="segmentrequest"></a>SegmentRequest | Name, duration, optional end km (cumulative kilometre mark where the segment ends) and notes for a race segment. | `name`, `duration`, `endKm?`, `notes?` | [SegmentRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/SegmentRequest.cs) |
 | <a id="itemrequest"></a>ItemRequest | Identifier of the nutrition library item to attach to a segment. | `nutritionItemId` | [ItemRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ItemRequest.cs) |
@@ -100,8 +112,10 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 |---|---|---|---|
 | <a id="appuserdto"></a>AppUserDto | User identifier, username, optional names and creation timestamp returned to the client. | `id`, `username`, `firstName?`, `lastName?`, `createdAtUtc` | [AppUserDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AppUserDto.cs) |
 | <a id="accesstokendto"></a>AccessTokenDto | Signed JWT string plus its UTC expiry time for clients. | `accessToken`, `expiresAtUtc` | [AccessTokenDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AccessTokenDto.cs) |
-| <a id="racedto"></a>RaceDto | Race summary with identifier, name, target and creation timestamp only. | `id`, `name`, `target`, `startTime?`, `createdAtUtc`, `raceDate?` | [RaceDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDto.cs) |
-| <a id="racedetaildto"></a>RaceDetailDto | Race with nested segments, each carrying its own items list. | `id`, `name`, `target`, `startTime?`, `createdAtUtc`, `raceDate?`, `segments[]` (`id`, `position`, `name`, `duration`, `endKm?`, `notes`, `items[]`, `aidStation?` (`id`, `name`, `notes`, `kit[]`, `items[]` of AidStationItemDto)) | [RaceDetailDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDetailDto.cs) |
+| <a id="racedto"></a>RaceDto | Race summary with identifier, name, target and creation timestamp only. | `id`, `name`, `target`, `startTime?`, `createdAtUtc`, `raceDate?`, `role` (`Owner` or `Crew`) | [RaceDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDto.cs) |
+| <a id="racedetaildto"></a>RaceDetailDto | Race with nested segments, each carrying its own items list. | `id`, `name`, `target`, `startTime?`, `createdAtUtc`, `raceDate?`, `role`, `pin?` (owner only, null for crew), `segments[]` (`id`, `position`, `name`, `duration`, `endKm?`, `notes`, `items[]`, `aidStation?` (`id`, `name`, `notes`, `kit[]`, `items[]` of AidStationItemDto)) | [RaceDetailDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceDetailDto.cs) |
+| <a id="crewmemberdto"></a>CrewMemberDto | One crew member of a race. | `appUserId`, `displayName`, `joinedAtUtc` | [CrewMemberDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/CrewMemberDto.cs) |
+| <a id="racepindto"></a>RacePinDto | A race's join PIN. | `pin` | [RacePinDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RacePinDto.cs) |
 | <a id="segmentdto"></a>SegmentDto | Segment fields including its race identifier, without nested items. | `id`, `raceId`, `position`, `name`, `duration`, `endKm?`, `notes` | [SegmentDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/SegmentDto.cs) |
 | <a id="itemdto"></a>ItemDto | Segment item row with its position and a flattened copy of the referenced library item's values. | `id`, `segmentId`, `nutritionItemId`, `position`, `name`, `type`, `size?`, `carbs?`, `calories?`, `caffeine?`, `sodium?`, `potassium?`, `magnesium?`, `calcium?` | [ItemDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/ItemDto.cs) |
 | <a id="nutritionitemdto"></a>NutritionItemDto | One nutrition library item owned by the caller. | `id`, `name`, `type`, `size?`, `carbs?`, `calories?`, `caffeine?`, `sodium?`, `potassium?`, `magnesium?`, `calcium?` | [NutritionItemDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/NutritionItemDto.cs) |
@@ -111,4 +125,4 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 
 ## Error responses
 
-Failures return `ProblemDetails` with a `correlationId`: 400 validation, 401 unauthenticated or bad login, 404 missing or not owned, 403 login, refresh or logout from a foreign `Origin`, 409 duplicate username, duplicate nutrition item name or a library item still in use or a segment that already has an aid station, 429 rate limit.
+Failures return `ProblemDetails` with a `correlationId`: 400 validation, 401 unauthenticated or bad login, 404 missing or not owned, 403 login, refresh or logout from a foreign `Origin`, 409 duplicate username, duplicate nutrition item name or a library item still in use or a segment that already has an aid station, 429 rate limit (including more than 10 join attempts a minute).

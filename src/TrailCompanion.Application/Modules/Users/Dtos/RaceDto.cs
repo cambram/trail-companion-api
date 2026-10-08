@@ -8,13 +8,15 @@ public record RaceDto(
     int Target,
     TimeOnly? StartTime,
     DateTime CreatedAtUtc,
-    DateOnly? RaceDate)
+    DateOnly? RaceDate,
+    RaceRole Role)
 {
-    public static RaceDto FromEntity(Races race) => new(
+    public static RaceDto FromEntity(Races race, RaceRole role = RaceRole.Owner) => new(
         race.Id,
         race.Name,
         race.Target,
         race.StartTime,
         race.CreatedAtUtc,
-        race.RaceDate);
+        race.RaceDate,
+        role);
 }

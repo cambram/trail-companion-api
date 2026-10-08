@@ -21,6 +21,11 @@ internal static class ApiEndpoints
         public const string GetRace = $"{RaceBase}/{{id:guid}}";
         public const string DeleteRace = $"{RaceBase}/{{id:guid}}";
         public const string UpdateRace = $"{RaceBase}/{{id:guid}}";
+        public const string JoinRace = $"{RaceBase}/join";
+        public const string RegenerateRacePin = $"{RaceBase}/{{id:guid}}/pin";
+        private const string CrewBase = $"{RaceBase}/{{raceId:guid}}/crew";
+        public const string GetRaceCrew = CrewBase;
+        public const string RemoveCrewMember = $"{CrewBase}/{{memberId:guid}}";
         private const string SegmentBase = $"{RaceBase}/{{raceId:guid}}/segments";
         public const string CreateSegment = SegmentBase;
         public const string ReorderSegments = $"{SegmentBase}/order";

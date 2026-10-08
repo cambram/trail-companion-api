@@ -52,7 +52,7 @@ public class RaceEditingEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var invalid = await owner.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("", 75));
         var foreign = await other.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("Hacked", 1));
 
-        var dto = await ok.Content.ReadFromJsonAsync<RaceDto>();
+        var dto = await ok.Content.ReadFromJsonAsync<RaceDto>(TestJson.Options);
         Assert.Equal(("UTCT 55K", 75), (dto!.Name, dto.Target));
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
@@ -125,7 +125,7 @@ public class RaceEditingEndpointTests : IClassFixture<PostgresDatabaseFixture>
     private static async Task<RaceDto> CreateRace(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/races", new CreateRaceRequest("UTMB", null));
-        return (await response.Content.ReadFromJsonAsync<RaceDto>())!;
+        return (await response.Content.ReadFromJsonAsync<RaceDto>(TestJson.Options))!;
     }
 
     private static async Task<SegmentDto> CreateSegment(HttpClient client, Guid raceId, string name)
