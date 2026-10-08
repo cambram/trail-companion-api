@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddDatabase(connectionString);
         services.AddRepositories();
         services.AddAuthenticationServices(configuration);
+        services.AddAppTimeZone(configuration);
 
         return services;
     }
