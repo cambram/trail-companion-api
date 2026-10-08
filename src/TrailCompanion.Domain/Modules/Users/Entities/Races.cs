@@ -8,4 +8,5 @@ public class Races : BaseEntity
     public int Target { get; set; } = 60;
     public TimeOnly? StartTime { get; set; }
     public DateOnly? RaceDate { get; set; }
+    public string Pin { get; set; } = string.Empty;
 }

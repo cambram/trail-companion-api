@@ -8,7 +8,11 @@ public class RacesConfiguration : IEntityTypeConfiguration<Races>
 {
     public void Configure(EntityTypeBuilder<Races> builder)
     {
-        builder.ToTable("Races", table => table.HasCheckConstraint("CK_Races_Target", "\"Target\" >= 0"));
+        builder.ToTable("Races", table =>
+        {
+            table.HasCheckConstraint("CK_Races_Target", "\"Target\" >= 0");
+            table.HasCheckConstraint("CK_Races_Pin", "\"Pin\" ~ '^[0-9]{6}$'");
+        });
 
         builder.HasKey(r => r.Id);
 
@@ -19,6 +23,13 @@ public class RacesConfiguration : IEntityTypeConfiguration<Races>
         builder.Property(r => r.Target)
             .IsRequired()
             .HasDefaultValue(60);
+
+        builder.Property(r => r.Pin)
+            .IsRequired()
+            .HasMaxLength(6);
+
+        builder.HasIndex(r => r.Pin)
+            .IsUnique();
 
         builder.HasOne<AppUser>()
             .WithMany()

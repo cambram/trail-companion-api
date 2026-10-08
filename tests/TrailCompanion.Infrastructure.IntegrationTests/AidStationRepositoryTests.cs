@@ -141,7 +141,7 @@ public class AidStationRepositoryTests : IClassFixture<PostgresDatabaseFixture>
         await using var context = _fixture.CreateContext();
         context.Add(appUser);
         await context.SaveChangesAsync();
-        var race = new Races { AppUserId = appUser.Id, Name = "UTCT" };
+        var race = new Races { AppUserId = appUser.Id, Name = "UTCT", Pin = TestPins.Next() };
         context.Add(race);
         await context.SaveChangesAsync();
         var segments = Enumerable.Range(1, segmentCount)

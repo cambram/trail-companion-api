@@ -66,8 +66,8 @@ public class SegmentEndKmMigrationTests : IClassFixture<PostgresDatabaseFixture>
         var appUser = new AppUser { Username = Guid.NewGuid().ToString("N"), PasswordHash = "hash" };
         context.Add(appUser);
         await context.SaveChangesAsync();
-        var first = new Races { AppUserId = appUser.Id, Name = "UTCT" };
-        var second = new Races { AppUserId = appUser.Id, Name = "Otter" };
+        var first = new Races { AppUserId = appUser.Id, Name = "UTCT", Pin = TestPins.Next() };
+        var second = new Races { AppUserId = appUser.Id, Name = "Otter", Pin = TestPins.Next() };
         context.AddRange(first, second);
         await context.SaveChangesAsync();
         return (first.Id, second.Id);
