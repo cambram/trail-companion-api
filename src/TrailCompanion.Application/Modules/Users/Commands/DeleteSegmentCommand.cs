@@ -21,10 +21,12 @@ public sealed class DeleteSegmentCommand : IRequest
 internal sealed class DeleteSegmentCommandHandler : IRequestHandler<DeleteSegmentCommand>
 {
     private readonly ISegmentsRepository _segmentsRepository;
+    private readonly IRaceRunsRepository _runsRepository;
 
-    public DeleteSegmentCommandHandler(ISegmentsRepository segmentsRepository)
+    public DeleteSegmentCommandHandler(ISegmentsRepository segmentsRepository, IRaceRunsRepository runsRepository)
     {
         _segmentsRepository = segmentsRepository;
+        _runsRepository = runsRepository;
     }
 
     public async Task Handle(DeleteSegmentCommand command, CancellationToken cancellationToken)
@@ -32,6 +34,8 @@ internal sealed class DeleteSegmentCommandHandler : IRequestHandler<DeleteSegmen
         var segment = await _segmentsRepository.GetByIdAsync(
                 command.AppUserId, command.RaceId, command.SegmentId, cancellationToken)
             ?? throw new NotFoundException(nameof(Segments), command.SegmentId);
+
+        await RunGuard.RequireNoActiveRunAsync(_runsRepository, command.RaceId, cancellationToken);
 
         _segmentsRepository.Delete(segment);
         await _segmentsRepository.SaveChangesAsync(cancellationToken);

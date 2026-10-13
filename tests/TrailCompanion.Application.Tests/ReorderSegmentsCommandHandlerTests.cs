@@ -10,6 +10,7 @@ namespace TrailCompanion.Application.Tests;
 public class ReorderSegmentsCommandHandlerTests
 {
     private readonly ISegmentsRepository _segments = Substitute.For<ISegmentsRepository>();
+    private readonly IRaceRunsRepository _runs = Substitute.For<IRaceRunsRepository>();
     private readonly Guid _appUserId = Guid.NewGuid();
     private readonly Guid _raceId = Guid.NewGuid();
 
@@ -27,7 +28,7 @@ public class ReorderSegmentsCommandHandlerTests
         return list;
     }
 
-    private Task Reorder(params Guid[] ids) => new ReorderSegmentsCommandHandler(_segments).Handle(
+    private Task Reorder(params Guid[] ids) => new ReorderSegmentsCommandHandler(_segments, _runs).Handle(
         new ReorderSegmentsCommand(_appUserId, _raceId, new ReorderRequest(ids)), CancellationToken.None);
 
     [Fact]
@@ -57,5 +58,18 @@ public class ReorderSegmentsCommandHandlerTests
         GivenSegments(1);
 
         await Assert.ThrowsAsync<NotFoundException>(() => Reorder(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task Handle_WhileARunIsActive_ThrowsRunInProgressAndKeepsTheOrder()
+    {
+        var s = GivenSegments(3);
+        _runs.HasActiveRunAsync(_raceId, Arg.Any<CancellationToken>()).Returns(true);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() => Reorder(s[2].Id, s[0].Id, s[1].Id));
+
+        Assert.Equal("RunInProgress", exception.Code);
+        Assert.Equal([1, 2, 3], s.Select(x => x.Position));
+        await _segments.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

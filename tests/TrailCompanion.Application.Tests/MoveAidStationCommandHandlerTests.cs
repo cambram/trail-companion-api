@@ -11,6 +11,7 @@ public class MoveAidStationCommandHandlerTests
 {
     private readonly ISegmentsRepository _segments = Substitute.For<ISegmentsRepository>();
     private readonly IAidStationsRepository _stations = Substitute.For<IAidStationsRepository>();
+    private readonly IRaceRunsRepository _runs = Substitute.For<IRaceRunsRepository>();
     private readonly Guid _appUserId = Guid.NewGuid();
     private readonly Guid _raceId = Guid.NewGuid();
     private readonly Guid _fromSegmentId = Guid.NewGuid();
@@ -28,7 +29,7 @@ public class MoveAidStationCommandHandlerTests
     }
 
     private Task Send(Guid? segmentId) =>
-        new MoveAidStationCommandHandler(_segments, _stations).Handle(
+        new MoveAidStationCommandHandler(_segments, _stations, _runs).Handle(
             new MoveAidStationCommand(_appUserId, _raceId, _station.Id, new MoveAidStationRequest(segmentId)),
             CancellationToken.None);
 
@@ -73,5 +74,17 @@ public class MoveAidStationCommandHandlerTests
     public async Task Handle_WithoutTarget_ThrowsValidation()
     {
         await Assert.ThrowsAsync<ValidationFailedException>(() => Send(null));
+    }
+
+    [Fact]
+    public async Task Handle_WhileARunIsActive_ThrowsRunInProgressAndMovesNothing()
+    {
+        _runs.HasActiveRunAsync(_raceId, Arg.Any<CancellationToken>()).Returns(true);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() => Send(_toSegmentId));
+
+        Assert.Equal("RunInProgress", exception.Code);
+        Assert.Equal(_fromSegmentId, _station.SegmentId);
+        await _stations.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

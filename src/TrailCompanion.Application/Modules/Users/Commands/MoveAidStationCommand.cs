@@ -25,13 +25,16 @@ internal sealed class MoveAidStationCommandHandler : IRequestHandler<MoveAidStat
 {
     private readonly ISegmentsRepository _segmentsRepository;
     private readonly IAidStationsRepository _aidStationsRepository;
+    private readonly IRaceRunsRepository _runsRepository;
 
     public MoveAidStationCommandHandler(
         ISegmentsRepository segmentsRepository,
-        IAidStationsRepository aidStationsRepository)
+        IAidStationsRepository aidStationsRepository,
+        IRaceRunsRepository runsRepository)
     {
         _segmentsRepository = segmentsRepository;
         _aidStationsRepository = aidStationsRepository;
+        _runsRepository = runsRepository;
     }
 
     public async Task Handle(MoveAidStationCommand command, CancellationToken cancellationToken)
@@ -49,6 +52,8 @@ internal sealed class MoveAidStationCommandHandler : IRequestHandler<MoveAidStat
 
         _ = await _segmentsRepository.GetByIdAsync(command.AppUserId, command.RaceId, targetId, cancellationToken)
             ?? throw new NotFoundException(nameof(Segments), targetId);
+
+        await RunGuard.RequireNoActiveRunAsync(_runsRepository, command.RaceId, cancellationToken);
 
         if (station.SegmentId == targetId)
         {

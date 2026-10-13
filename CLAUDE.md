@@ -13,6 +13,11 @@
 - `AidStationItems`: belong to an aid station, reference a `NutritionItems`, carry `Position`. Their carbs count toward the station's segment on the client.
 - `RaceCrewMembers`: belongs to a race and an `AppUser`, unique per pair, both foreign keys cascade. Crew have read-only access to the race.
 - `Races.Pin`: 6 digits, unique, regenerable. Crew join with it.
+- `RaceRuns`: one per race (unique `RaceId`), `StartedAtUtc`, nullable `StartedBy`, nullable `FinishedAtUtc`. Cascades from the race. `StartedBy` is set null when that user is deleted.
+- `Arrivals`: unique per (`RaceRunId`, `AidStationId`) with `NULLS NOT DISTINCT`; `AidStationId = null` is the finish. Cascades from the run and from the aid station. `RecordedBy` is set null when that user is deleted.
+- Run endpoints (`GetRunQuery`, Start/Edit/Delete run, Record/Edit/Delete arrival) resolve the race with `RaceRunAccess.RequireAsync` (owner or crew). That is the only place crew may write. Every plan-editing write stays owner-only through `GetByIdAsync`.
+- While a run exists and is not finished, `DeleteAidStation`, `DeleteSegment`, `MoveAidStation`, `ReorderSegments` and `CreateAidStation` return 409 `RunInProgress` (after their ownership check).
+- `App:TimeZone` is resolved by `AppTimeZone.Resolve` at startup. Race-day checks use `AppTimeZone` plus the registered `TimeProvider`; tests move time with a `TimeProvider` subclass.
 - Race reads (`GetRaceQuery`, `GetRacesQuery`, `GetRaceCrewQuery`) accept owner or crew via `GetAccessibleByIdAsync` and read children with the race's `AppUserId`. Every write stays owner-only.
 - `Races` and `NutritionItems` carry `AppUserId`. Segments and items are owned through the chain: handlers verify race and segment via repositories that take `appUserId`.
 - Entity classes are plural (`Races`, `Segments`, `Items`). Race features currently live in the `Users` module folders across all layers.

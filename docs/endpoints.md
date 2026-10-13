@@ -2,7 +2,7 @@
 
 Every route, its request and response schema, and where the code lives. Base path is `api`. Route constants are in [ApiEndpoints.cs](../src/TrailCompanion.Api/Endpoints/ApiEndpoints.cs). Auth details are in [auth.md](./auth.md).
 
-Every endpoint except register, login, refresh and logout needs `Authorization: Bearer <token>`. Race reads also allow crew (a user who joined a race by PIN), and every write is owner-only: crew get 404 on any write. Anything else the caller does not own or has not joined returns 404.
+Every endpoint except register, login, refresh and logout needs `Authorization: Bearer <token>`. Race reads also allow crew (a user who joined a race by PIN), and every write is owner-only, except starting and running live tracking, which crew may do: crew get 404 on any other write. Anything else the caller does not own or has not joined returns 404.
 
 ## Users
 
@@ -38,7 +38,23 @@ Crew are other users who joined a race with its 6-digit PIN. They can read the p
 | DELETE | `/api/races/{raceId}/crew/{memberId}` | Remove a crew member. The owner can remove anyone; a crew member can remove only themselves. `memberId` is the member's `appUserId`. | none | 204; 404 | [RemoveCrewMemberEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RemoveCrewMemberEndpoint.cs) |
 | POST | `/api/races/{id}/pin` | Replace the race's PIN; the old PIN stops working. Owner only. | none | 200 [RacePinDto](#racepindto); 404 | [RegenerateRacePinEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RegenerateRacePinEndpoint.cs) |
 
+## Live tracking
+
+The owner and crew can both start a run and record arrivals. Strangers and removed crew get 404 on every route. Every success returns `RaceRunStateDto` (200). `checkpoint` is an aid station id or `finish`. Times are UTC instants; `timeZone` names the zone used for race day.
+
+| Method | Route | Description | Request | Response | Endpoint file |
+|---|---|---|---|---|---|
+| GET | `/api/races/{raceId}/run` | Return the run state for the owner or a crew member. Clients poll this. | none | 200 [RaceRunStateDto](#racerunstatedto); 404 | [GetRunEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/GetRunEndpoint.cs) |
+| POST | `/api/races/{raceId}/run/start` | Start live tracking on race day. `startedAt` defaults to now. | [StartRunRequest](#startrunrequest) | 200 [RaceRunStateDto](#racerunstatedto); 400 `RaceDateNotSet` / `NotRaceDay` / `NoSegments` / `StartInFuture` / `StartNotOnRaceDay`; 404; 409 `RunExists` | [StartRunEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/StartRunEndpoint.cs) |
+| PATCH | `/api/races/{raceId}/run` | Move the run start, before the first arrival. | [EditRunRequest](#editrunrequest) | 200 [RaceRunStateDto](#racerunstatedto); 400 `RaceDateNotSet` / `StartedAtRequired` / `StartInFuture` / `StartNotOnRaceDay` / `StartAfterFirstArrival`; 404 | [EditRunEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/EditRunEndpoint.cs) |
+| DELETE | `/api/races/{raceId}/run` | Undo the start: delete the run and every arrival. | none | 200 [RaceRunStateDto](#racerunstatedto); 404 | [DeleteRunEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteRunEndpoint.cs) |
+| POST | `/api/races/{raceId}/run/arrivals` | Record an arrival at a checkpoint. `arrivedAt` defaults to now. | [RecordArrivalRequest](#recordarrivalrequest) | 200 [RaceRunStateDto](#racerunstatedto); 400 `InvalidCheckpoint` / `ArrivalInFuture` / `ArrivalBeforeStart` / `ArrivalOutOfOrder`; 404; 409 `ArrivalExists` | [RecordArrivalEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/RecordArrivalEndpoint.cs) |
+| PATCH | `/api/races/{raceId}/run/arrivals/{checkpoint}` | Correct a recorded arrival time. | [EditArrivalRequest](#editarrivalrequest) | 200 [RaceRunStateDto](#racerunstatedto); 400 `ArrivedAtRequired` and the time codes; 404 | [EditArrivalEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/EditArrivalEndpoint.cs) |
+| DELETE | `/api/races/{raceId}/run/arrivals/{checkpoint}` | Undo a recorded arrival. Undoing the finish reopens the run. | none | 200 [RaceRunStateDto](#racerunstatedto); 404 | [DeleteArrivalEndpoint.cs](../src/TrailCompanion.Api/Endpoints/Users/DeleteArrivalEndpoint.cs) |
+
 ## Segments
+
+Delete aid station, delete segment, move aid station, reorder segments and add aid station return 409 `RunInProgress` while the race has a live run that is not finished.
 
 | Method | Route | Description | Request | Response | Endpoint file |
 |---|---|---|---|---|---|
@@ -57,7 +73,7 @@ Crew are other users who joined a race with its 6-digit PIN. They can read the p
 
 ## Aid stations
 
-An aid station sits before a segment (the gap between the previous segment and this one), at most one per segment. Moving a station into an occupied gap swaps the two. Station items count toward the carbs of the segment the station precedes. Deleting a library item used by any station returns 409 as it does for segment items.
+An aid station sits before a segment (the gap between the previous segment and this one), at most one per segment. Moving a station into an occupied gap swaps the two. Station items count toward the carbs of the segment the station precedes. Deleting a library item used by any station returns 409 as it does for segment items. Delete aid station, delete segment, move aid station, reorder segments and add aid station return 409 `RunInProgress` while the race has a live run that is not finished.
 
 | Method | Route | Description | Request | Response | Endpoint file |
 |---|---|---|---|---|---|
@@ -105,6 +121,10 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 | <a id="aidstationrequest"></a>AidStationRequest | Full replacement of an aid station's name, notes and kit list. | `name`, `notes?`, `kit?[]` (`label`, `certainty`: `Planned` or `Maybe`) | [AidStationRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationRequest.cs) |
 | <a id="kitentryrequest"></a>KitEntryRequest | One kit list entry on an aid station. | `label`, `certainty` | [AidStationRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationRequest.cs) |
 | <a id="moveaidstationrequest"></a>MoveAidStationRequest | Segment whose preceding gap the station moves to. | `segmentId` | [AidStationRequest.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationRequest.cs) |
+| <a id="startrunrequest"></a>StartRunRequest | Optional start instant, defaulting to now. | `startedAt?` | [RunRequests.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RunRequests.cs) |
+| <a id="editrunrequest"></a>EditRunRequest | New start instant. | `startedAt` | [RunRequests.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RunRequests.cs) |
+| <a id="recordarrivalrequest"></a>RecordArrivalRequest | Checkpoint (aid station id or `finish`) and optional arrival instant, defaulting to now. | `checkpoint`, `arrivedAt?` | [RunRequests.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RunRequests.cs) |
+| <a id="editarrivalrequest"></a>EditArrivalRequest | New arrival instant. | `arrivedAt` | [RunRequests.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RunRequests.cs) |
 
 ### Responses
 
@@ -122,7 +142,10 @@ All live in [`Application/Modules/Users/Dtos/`](../src/TrailCompanion.Applicatio
 | <a id="aidstationdto"></a>AidStationDto | Aid station without its items. | `id`, `segmentId`, `name`, `notes`, `kit[]` | [AidStationDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationDto.cs) |
 | <a id="aidstationitemdto"></a>AidStationItemDto | Aid station item row with its position and a flattened copy of the referenced library item's values. | `id`, `aidStationId`, `nutritionItemId`, `position`, `name`, `type`, `size?`, `carbs?`, `calories?`, `caffeine?`, `sodium?`, `potassium?`, `magnesium?`, `calcium?` | [AidStationItemDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/AidStationItemDto.cs) |
 | <a id="kitentrydto"></a>KitEntryDto | One kit list entry. | `label`, `certainty` (`Planned` or `Maybe`) | [KitEntryDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/KitEntryDto.cs) |
+| <a id="racerunstatedto"></a>RaceRunStateDto | Live run state for a race. | `timeZone`, `today` (`YYYY-MM-DD` in that zone), `canStart`, `run?` | [RaceRunDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceRunDto.cs) |
+| <a id="racerundto"></a>RaceRunDto | A started run. | `id`, `startedAtUtc`, `finishedAtUtc?`, `arrivals[]` | [RaceRunDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceRunDto.cs) |
+| <a id="arrivaldto"></a>ArrivalDto | One recorded arrival. | `checkpoint`, `arrivedAtUtc` | [RaceRunDto.cs](../src/TrailCompanion.Application/Modules/Users/Dtos/RaceRunDto.cs) |
 
 ## Error responses
 
-Failures return `ProblemDetails` with a `correlationId`: 400 validation, 401 unauthenticated or bad login, 404 missing or not owned, 403 login, refresh or logout from a foreign `Origin`, 409 duplicate username, duplicate nutrition item name or a library item still in use or a segment that already has an aid station, 429 rate limit (including more than 10 join attempts a minute).
+Failures return `ProblemDetails` with a `correlationId`: 400 validation, 401 unauthenticated or bad login, 404 missing or not owned, 403 login, refresh or logout from a foreign `Origin`, 409 duplicate username, duplicate nutrition item name or a library item still in use or a segment that already has an aid station, `RunExists`, `ArrivalExists`, `RunInProgress` (structural plan edit during a live run), 429 rate limit (including more than 10 join attempts a minute).

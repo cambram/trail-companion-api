@@ -143,6 +143,44 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                     b.ToTable("AppUsers", (string)null);
                 });
 
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Arrivals", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AidStationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ArrivedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RaceRunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RecordedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AidStationId");
+
+                    b.HasIndex("RecordedBy");
+
+                    b.HasIndex("RaceRunId", "AidStationId")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("RaceRunId", "AidStationId"), false);
+
+                    b.ToTable("Arrivals", (string)null);
+                });
+
             modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Items", b =>
                 {
                     b.Property<Guid>("Id")
@@ -277,6 +315,40 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("RaceCrewMembers", (string)null);
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.RaceRuns", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FinishedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RaceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("StartedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RaceId")
+                        .IsUnique();
+
+                    b.HasIndex("StartedBy");
+
+                    b.ToTable("RaceRuns", (string)null);
                 });
 
             modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Races", b =>
@@ -446,6 +518,25 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Arrivals", b =>
+                {
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.AidStations", null)
+                        .WithMany()
+                        .HasForeignKey("AidStationId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.RaceRuns", null)
+                        .WithMany()
+                        .HasForeignKey("RaceRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
             modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Items", b =>
                 {
                     b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.NutritionItems", null)
@@ -483,6 +574,20 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                         .HasForeignKey("RaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.RaceRuns", b =>
+                {
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.Races", null)
+                        .WithMany()
+                        .HasForeignKey("RaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("StartedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Races", b =>

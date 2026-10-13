@@ -11,12 +11,13 @@ public class CreateAidStationCommandHandlerTests
 {
     private readonly ISegmentsRepository _segments = Substitute.For<ISegmentsRepository>();
     private readonly IAidStationsRepository _stations = Substitute.For<IAidStationsRepository>();
+    private readonly IRaceRunsRepository _runs = Substitute.For<IRaceRunsRepository>();
     private readonly Guid _appUserId = Guid.NewGuid();
     private readonly Guid _raceId = Guid.NewGuid();
     private readonly Guid _segmentId = Guid.NewGuid();
 
     private Task<AidStationDto> Send(Guid? segmentId, string? name) =>
-        new CreateAidStationCommandHandler(_segments, _stations).Handle(
+        new CreateAidStationCommandHandler(_segments, _stations, _runs).Handle(
             new CreateAidStationCommand(_appUserId, _raceId, new CreateAidStationRequest(segmentId, name)),
             CancellationToken.None);
 
@@ -65,5 +66,17 @@ public class CreateAidStationCommandHandlerTests
 
         await Assert.ThrowsAsync<ValidationFailedException>(() => Send(null, "A"));
         await Assert.ThrowsAsync<ValidationFailedException>(() => Send(_segmentId, " "));
+    }
+
+    [Fact]
+    public async Task Handle_WhileARunIsActive_ThrowsRunInProgressAndAddsNothing()
+    {
+        GivenOwnedSegment();
+        _runs.HasActiveRunAsync(_raceId, Arg.Any<CancellationToken>()).Returns(true);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() => Send(_segmentId, "Hout Bay"));
+
+        Assert.Equal("RunInProgress", exception.Code);
+        await _stations.DidNotReceive().AddAsync(Arg.Any<AidStations>(), Arg.Any<CancellationToken>());
     }
 }
