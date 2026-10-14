@@ -450,6 +450,9 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("AscentM")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -488,6 +491,8 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Segments", null, t =>
                         {
+                            t.HasCheckConstraint("CK_Segments_AscentM", "\"AscentM\" IS NULL OR (\"AscentM\" >= 0 AND \"AscentM\" <= 10000)");
+
                             t.HasCheckConstraint("CK_Segments_Duration", "\"Duration\" >= 0");
 
                             t.HasCheckConstraint("CK_Segments_EndKm", "\"EndKm\" IS NULL OR \"EndKm\" >= 0");

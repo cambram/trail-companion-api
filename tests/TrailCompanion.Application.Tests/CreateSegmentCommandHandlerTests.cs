@@ -42,6 +42,37 @@ public class CreateSegmentCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_StoresAscentAndLeavesItNullWhenOmitted()
+    {
+        GivenOwnedRace();
+
+        var withAscent = await CreateHandler().Handle(
+            new CreateSegmentCommand(_appUserId, _raceId, new SegmentRequest("A", 90, 11.5, null, 600)),
+            CancellationToken.None);
+        var without = await CreateHandler().Handle(
+            new CreateSegmentCommand(_appUserId, _raceId, new SegmentRequest("B", 90, 11.5, null)),
+            CancellationToken.None);
+
+        Assert.Equal(600, withAscent.AscentM);
+        Assert.Null(without.AscentM);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(10001)]
+    public async Task Handle_WithAscentOutOfRange_ThrowsInvalidAscentAndSavesNothing(int ascent)
+    {
+        GivenOwnedRace();
+
+        var exception = await Assert.ThrowsAsync<ValidationFailedException>(() => CreateHandler().Handle(
+            new CreateSegmentCommand(_appUserId, _raceId, new SegmentRequest("A", 90, null, null, ascent)),
+            CancellationToken.None));
+
+        Assert.Contains(exception.Failures, f => f.Code == "InvalidAscent");
+        await _segments.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Handle_WithExistingSegments_AppendsAfterHighestPosition()
     {
         GivenOwnedRace(

@@ -12,6 +12,7 @@ public class SegmentsConfiguration : IEntityTypeConfiguration<Segments>
         {
             table.HasCheckConstraint("CK_Segments_Duration", "\"Duration\" >= 0");
             table.HasCheckConstraint("CK_Segments_EndKm", "\"EndKm\" IS NULL OR \"EndKm\" >= 0");
+            table.HasCheckConstraint("CK_Segments_AscentM", "\"AscentM\" IS NULL OR (\"AscentM\" >= 0 AND \"AscentM\" <= 10000)");
         });
 
         builder.HasKey(s => s.Id);

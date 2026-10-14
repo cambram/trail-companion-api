@@ -8,5 +8,6 @@ public class Segments : BaseEntity
     public string Name { get; set; } = string.Empty;
     public int Duration { get; set; }
     public double? EndKm { get; set; }
+    public int? AscentM { get; set; }
     public string Notes { get; set; } = string.Empty;
 }

@@ -104,6 +104,25 @@ public class SegmentEndpointTests : IClassFixture<PostgresDatabaseFixture>
     }
 
     [Fact]
+    public async Task CreateSegment_SendsAndReturnsAscentOnTheWire_AndRejectsGarbage()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        await SignIn(client);
+        var race = await CreateRace(client);
+
+        var ok = await client.PostAsJsonAsync(CreateRoute(race.Id), new { name = "Climb", duration = 90, ascentM = 650 });
+        var negative = await client.PostAsJsonAsync(CreateRoute(race.Id), new { name = "Bad", duration = 90, ascentM = -5 });
+        var fractional = await client.PostAsJsonAsync(CreateRoute(race.Id), new { name = "Bad", duration = 90, ascentM = 12.5 });
+
+        Assert.Equal(HttpStatusCode.Created, ok.StatusCode);
+        using var json = JsonDocument.Parse(await ok.Content.ReadAsStringAsync());
+        Assert.Equal(650, json.RootElement.GetProperty("ascentM").GetInt32());
+        Assert.Equal(HttpStatusCode.BadRequest, negative.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, fractional.StatusCode);
+    }
+
+    [Fact]
     public async Task UpdateSegment_ReplacesFieldsAndKeepsPosition()
     {
         using var factory = CreateFactory();

@@ -25,6 +25,7 @@ public class UpdateSegmentCommandHandlerTests
             Name = "Old",
             Duration = 10,
             EndKm = 1,
+            AscentM = 50,
             Notes = "old notes"
         };
         _segments.GetByIdAsync(_appUserId, _raceId, segment.Id, Arg.Any<CancellationToken>()).Returns(segment);
@@ -46,6 +47,22 @@ public class UpdateSegmentCommandHandlerTests
         Assert.Equal(string.Empty, result.Notes);
         Assert.Equal(3, result.Position);
         await _segments.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_ReplacesAscent_AndClearsItWhenOmitted()
+    {
+        var segment = GivenSegment();
+
+        var set = await CreateHandler().Handle(
+            new UpdateSegmentCommand(_appUserId, _raceId, segment.Id, new SegmentRequest("New", 45, null, null, 900)),
+            CancellationToken.None);
+        var cleared = await CreateHandler().Handle(
+            new UpdateSegmentCommand(_appUserId, _raceId, segment.Id, new SegmentRequest("New", 45, null, null)),
+            CancellationToken.None);
+
+        Assert.Equal(900, set.AscentM);
+        Assert.Null(cleared.AscentM);
     }
 
     [Fact]

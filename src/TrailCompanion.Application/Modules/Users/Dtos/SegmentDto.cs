@@ -9,6 +9,7 @@ public record SegmentDto(
     string Name,
     int Duration,
     double? EndKm,
+    int? AscentM,
     string Notes)
 {
     public static SegmentDto FromEntity(Segments segment) => new(
@@ -18,5 +19,6 @@ public record SegmentDto(
         segment.Name,
         segment.Duration,
         segment.EndKm,
+        segment.AscentM,
         segment.Notes);
 }

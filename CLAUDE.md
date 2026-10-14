@@ -6,7 +6,7 @@
 
 - `AppUser`: the account. JWT `sub` = `AppUser.Id`.
 - `Races`: owned by `AppUserId`. `Name`, `Target` (carbs per hour, default 60), nullable `StartTime` (`TimeOnly`) and `RaceDate` (`DateOnly`, no timezone).
-- `Segments`: belong to a race. `Position`, `Name`, `Duration`, `EndKm?` (cumulative km mark where the segment ends; length is derived on the client), `Notes`.
+- `Segments`: belong to a race. `Position`, `Name`, `Duration`, `EndKm?` (cumulative km mark where the segment ends; length is derived on the client), `AscentM?` (whole metres of ascent, 0 to 10000, null means unknown; the client weights live predictions with it), `Notes`.
 - `Items`: belong to a segment, reference a `NutritionItems`, carry `Position`. They hold no nutrition values of their own.
 - `NutritionItems`: the user's nutrition library, owned by `AppUserId`. `Name` (unique per user), `Type` (`Gel`, `Liquid`, `Solid`, `Pill`, stored as text), nullable `Size` and macros (`Carbs`, `Calories`, `Caffeine`, `Sodium`, `Potassium`, `Magnesium`, `Calcium`). `Sodium`, `Potassium`, `Magnesium` and `Calcium` are `decimal?` at `HasPrecision(8, 2)`; the rest are `int?`. `Size`'s unit is implied by `Type`. Null means unknown, not zero.
 - `AidStations`: belong to a segment (the segment they precede), at most one per segment via the deferrable `UQ_AidStations_SegmentId`. `Name`, `Notes`, `Kit` (jsonb list of `Label` + `Certainty` `Planned`/`Maybe`). No duration. Moving into an occupied segment swaps.

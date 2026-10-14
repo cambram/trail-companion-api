@@ -39,7 +39,7 @@ public class GetRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
         using var client = factory.CreateClient();
         await SignIn(client);
         var race = await Post<RaceDto>(client, Route(ApiEndpoints.Users.CreateRace), new CreateRaceRequest("UTMB", 90));
-        var first = await Post<SegmentDto>(client, SegmentsRoute(race.Id), new SegmentRequest("Start to Aid 1", 90, 11, "Easy"));
+        var first = await Post<SegmentDto>(client, SegmentsRoute(race.Id), new SegmentRequest("Start to Aid 1", 90, 11, "Easy", 650));
         var second = await Post<SegmentDto>(client, SegmentsRoute(race.Id), new SegmentRequest("Aid 1 to Aid 2", 60, null, null));
         var gel = await CreateNutrition(client, "Gel", 40);
         var chew = await CreateNutrition(client, "Chew", 30);
@@ -59,6 +59,7 @@ public class GetRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
             {
                 Assert.Equal("Start to Aid 1", s.Name);
                 Assert.Equal(11, s.EndKm);
+                Assert.Equal(650, s.AscentM);
                 Assert.Equal(["Gel", "Chew"], s.Items.Select(i => i.Name));
             },
             s =>
