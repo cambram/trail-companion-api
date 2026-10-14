@@ -25,6 +25,7 @@ internal sealed class GetRaceQueryHandler : IRequestHandler<GetRaceQuery, RaceDe
     private readonly INutritionItemsRepository _nutritionItemsRepository;
     private readonly IAidStationsRepository _aidStationsRepository;
     private readonly IAidStationItemsRepository _aidStationItemsRepository;
+    private readonly IReminderItemsRepository _reminderItemsRepository;
 
     public GetRaceQueryHandler(
         IRacesRepository racesRepository,
@@ -32,7 +33,8 @@ internal sealed class GetRaceQueryHandler : IRequestHandler<GetRaceQuery, RaceDe
         IItemsRepository itemsRepository,
         INutritionItemsRepository nutritionItemsRepository,
         IAidStationsRepository aidStationsRepository,
-        IAidStationItemsRepository aidStationItemsRepository)
+        IAidStationItemsRepository aidStationItemsRepository,
+        IReminderItemsRepository reminderItemsRepository)
     {
         _racesRepository = racesRepository;
         _segmentsRepository = segmentsRepository;
@@ -40,6 +42,7 @@ internal sealed class GetRaceQueryHandler : IRequestHandler<GetRaceQuery, RaceDe
         _nutritionItemsRepository = nutritionItemsRepository;
         _aidStationsRepository = aidStationsRepository;
         _aidStationItemsRepository = aidStationItemsRepository;
+        _reminderItemsRepository = reminderItemsRepository;
     }
 
     public async Task<RaceDetailDto> Handle(GetRaceQuery request, CancellationToken cancellationToken)
@@ -59,6 +62,7 @@ internal sealed class GetRaceQueryHandler : IRequestHandler<GetRaceQuery, RaceDe
 
         var stations = await _aidStationsRepository.GetByRaceIdAsync(ownerId, request.RaceId, cancellationToken);
         var stationItems = await _aidStationItemsRepository.GetByRaceIdAsync(ownerId, request.RaceId, cancellationToken);
+        var reminderItems = await _reminderItemsRepository.GetByRaceIdAsync(ownerId, request.RaceId, cancellationToken);
 
         var itemsBySegment = items
             .Where(i => nutritionById.ContainsKey(i.NutritionItemId))
@@ -79,6 +83,17 @@ internal sealed class GetRaceQueryHandler : IRequestHandler<GetRaceQuery, RaceDe
                 stationBySegment.GetValueOrDefault(s.Id)))
             .ToList();
 
-        return RaceDetailDto.FromEntity(race, segmentDtos, role);
+        var reminderDtos = reminderItems
+            .Where(i => nutritionById.ContainsKey(i.NutritionItemId))
+            .GroupBy(i => i.ReminderNumber)
+            .OrderBy(g => g.Key)
+            .Select(g => new ReminderDto(
+                g.Key,
+                g.OrderBy(i => i.Position)
+                    .Select(i => ReminderItemDto.FromEntity(i, nutritionById[i.NutritionItemId]))
+                    .ToList()))
+            .ToList();
+
+        return RaceDetailDto.FromEntity(race, segmentDtos, reminderDtos, role);
     }
 }

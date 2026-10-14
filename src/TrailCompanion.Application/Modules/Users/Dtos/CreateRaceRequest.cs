@@ -4,4 +4,5 @@ public record CreateRaceRequest(
     string? Name,
     int? Target,
     TimeOnly? StartTime = null,
-    DateOnly? RaceDate = null);
+    DateOnly? RaceDate = null,
+    int? ReminderIntervalMin = null);

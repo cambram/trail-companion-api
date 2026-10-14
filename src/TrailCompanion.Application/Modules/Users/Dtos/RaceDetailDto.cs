@@ -52,9 +52,15 @@ public record RaceDetailDto(
     IReadOnlyList<SegmentDetailDto> Segments,
     DateOnly? RaceDate,
     RaceRole Role,
-    string? Pin)
+    string? Pin,
+    int ReminderIntervalMin,
+    IReadOnlyList<ReminderDto> Reminders)
 {
-    public static RaceDetailDto FromEntity(Races race, IReadOnlyList<SegmentDetailDto> segments, RaceRole role) => new(
+    public static RaceDetailDto FromEntity(
+        Races race,
+        IReadOnlyList<SegmentDetailDto> segments,
+        IReadOnlyList<ReminderDto> reminders,
+        RaceRole role) => new(
         race.Id,
         race.Name,
         race.Target,
@@ -63,5 +69,7 @@ public record RaceDetailDto(
         segments,
         race.RaceDate,
         role,
-        role == RaceRole.Owner ? race.Pin : null);
+        role == RaceRole.Owner ? race.Pin : null,
+        race.ReminderIntervalMin,
+        reminders);
 }

@@ -122,6 +122,27 @@ public class RaceEditingEndpointTests : IClassFixture<PostgresDatabaseFixture>
         Assert.Equal(["Banana", "Gel"], detail.Segments[1].Items.Select(i => i.Name));
     }
 
+    [Fact]
+    public async Task UpdateRace_ReminderInterval_RoundTripsAndRejectsOutOfRange()
+    {
+        using var factory = CreateFactory();
+        using var owner = factory.CreateClient();
+        await SignIn(owner);
+        var race = await CreateRace(owner);
+
+        var ok = await owner.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("UTCT", 60, null, null, 45));
+        var tooShort = await owner.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("UTCT", 60, null, null, 4));
+        var tooLong = await owner.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("UTCT", 60, null, null, 181));
+        var omitted = await owner.PutAsJsonAsync($"/api/races/{race.Id}", new CreateRaceRequest("UTCT", 60));
+
+        var dto = await ok.Content.ReadFromJsonAsync<RaceDto>(TestJson.Options);
+        var kept = await omitted.Content.ReadFromJsonAsync<RaceDto>(TestJson.Options);
+        Assert.Equal(45, dto!.ReminderIntervalMin);
+        Assert.Equal(HttpStatusCode.BadRequest, tooShort.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, tooLong.StatusCode);
+        Assert.Equal(45, kept!.ReminderIntervalMin);
+    }
+
     private static async Task<RaceDto> CreateRace(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/races", new CreateRaceRequest("UTMB", null));
@@ -138,7 +159,7 @@ public class RaceEditingEndpointTests : IClassFixture<PostgresDatabaseFixture>
     {
         var nutrition = await client.PostAsJsonAsync(
             "/api/nutrition-items",
-            new NutritionItemRequest(name, NutritionType.Gel, null, 25, null, null, null, null, null, null),
+            new NutritionItemRequest(name, NutritionType.Liquid, null, 25, null, null, null, null, null, null),
             TestJson.Options);
         var created = (await nutrition.Content.ReadFromJsonAsync<NutritionItemDto>(TestJson.Options))!;
         var response = await client.PostAsJsonAsync(

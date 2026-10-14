@@ -36,7 +36,7 @@ public class CreateItemCommandHandlerTests
             Id = _nutritionItemId,
             AppUserId = _appUserId,
             Name = "Maurten Gel 160",
-            Type = NutritionType.Gel,
+            Type = NutritionType.Liquid,
             Size = 40,
             Carbs = 40,
             Sodium = 200
@@ -57,7 +57,7 @@ public class CreateItemCommandHandlerTests
         Assert.Equal(_segmentId, result.SegmentId);
         Assert.Equal(_nutritionItemId, result.NutritionItemId);
         Assert.Equal("Maurten Gel 160", result.Name);
-        Assert.Equal(NutritionType.Gel, result.Type);
+        Assert.Equal(NutritionType.Liquid, result.Type);
         Assert.Equal(40, result.Carbs);
         Assert.Equal(200, result.Sodium);
         Assert.Null(result.Calories);
@@ -125,6 +125,23 @@ public class CreateItemCommandHandlerTests
         await Assert.ThrowsAsync<ValidationFailedException>(() =>
             CreateHandler().Handle(Command(_nutritionItemId), CancellationToken.None));
 
+        await _items.DidNotReceive().AddAsync(Arg.Any<Items>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(NutritionType.Gel)]
+    [InlineData(NutritionType.Solid)]
+    [InlineData(NutritionType.Pill)]
+    public async Task Handle_WithANonLiquidLibraryItem_ThrowsValidationAndStoresNothing(NutritionType type)
+    {
+        GivenOwnedSegment();
+        var nutritionItem = GivenOwnedNutritionItem();
+        nutritionItem.Type = type;
+
+        var exception = await Assert.ThrowsAsync<ValidationFailedException>(() =>
+            CreateHandler().Handle(Command(_nutritionItemId), CancellationToken.None));
+
+        Assert.Contains(exception.Failures, f => f.Code == "LiquidOnly");
         await _items.DidNotReceive().AddAsync(Arg.Any<Items>(), Arg.Any<CancellationToken>());
     }
 }

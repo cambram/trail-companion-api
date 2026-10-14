@@ -52,6 +52,10 @@ internal static class ApiEndpoints
         public const string CreateAidStationItem = AidStationItemBase;
         public const string ReorderAidStationItems = $"{AidStationItemBase}/order";
         public const string DeleteAidStationItem = $"{AidStationItemBase}/{{id:guid}}";
+        private const string ReminderItemBase = $"{RaceBase}/{{raceId:guid}}/reminders/{{number:int}}/items";
+        public const string CreateReminderItem = ReminderItemBase;
+        public const string ReorderReminderItems = $"{ReminderItemBase}/order";
+        public const string DeleteReminderItem = $"{ReminderItemBase}/{{id:guid}}";
         private const string NutritionItemBase = $"{ApiBase}/nutrition-items";
         public const string GetNutritionItems = NutritionItemBase;
         public const string CreateNutritionItem = NutritionItemBase;

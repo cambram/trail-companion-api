@@ -376,6 +376,11 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly?>("RaceDate")
                         .HasColumnType("date");
 
+                    b.Property<int>("ReminderIntervalMin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(30);
+
                     b.Property<TimeOnly?>("StartTime")
                         .HasColumnType("time without time zone");
 
@@ -397,6 +402,8 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                     b.ToTable("Races", null, t =>
                         {
                             t.HasCheckConstraint("CK_Races_Pin", "\"Pin\" ~ '^[0-9]{6}$'");
+
+                            t.HasCheckConstraint("CK_Races_ReminderIntervalMin", "\"ReminderIntervalMin\" BETWEEN 5 AND 180");
 
                             t.HasCheckConstraint("CK_Races_Target", "\"Target\" >= 0");
                         });
@@ -442,6 +449,42 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("RefreshTokens", (string)null);
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.ReminderItems", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("NutritionItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RaceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ReminderNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NutritionItemId");
+
+                    b.HasIndex("RaceId", "ReminderNumber", "Position");
+
+                    b.ToTable("ReminderItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ReminderItems_ReminderNumber", "\"ReminderNumber\" BETWEEN 1 AND 500");
+                        });
                 });
 
             modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.Segments", b =>
@@ -609,6 +652,21 @@ namespace TrailCompanion.Infrastructure.Persistence.Migrations
                     b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.AppUser", null)
                         .WithMany()
                         .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TrailCompanion.Domain.Modules.Users.Entities.ReminderItems", b =>
+                {
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.NutritionItems", null)
+                        .WithMany()
+                        .HasForeignKey("NutritionItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TrailCompanion.Domain.Modules.Users.Entities.Races", null)
+                        .WithMany()
+                        .HasForeignKey("RaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

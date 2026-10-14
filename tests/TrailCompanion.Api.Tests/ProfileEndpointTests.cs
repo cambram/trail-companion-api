@@ -170,7 +170,7 @@ public class ProfileEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var me = await client.GetFromJsonAsync<AppUserDto>(Route(ApiEndpoints.Users.GetMyUser));
         var nutrition = await (await client.PostAsJsonAsync(
                 Route(ApiEndpoints.Users.CreateNutritionItem),
-                new NutritionItemRequest(me!.Username, NutritionType.Gel, null, 40, null, null, null, null, null, null),
+                new NutritionItemRequest(me!.Username, NutritionType.Liquid, null, 40, null, null, null, null, null, null),
                 TestJson.Options))
             .Content.ReadFromJsonAsync<NutritionItemDto>(TestJson.Options);
         var item = await client.PostAsJsonAsync(

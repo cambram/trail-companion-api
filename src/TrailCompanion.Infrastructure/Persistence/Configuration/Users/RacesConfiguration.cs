@@ -12,6 +12,7 @@ public class RacesConfiguration : IEntityTypeConfiguration<Races>
         {
             table.HasCheckConstraint("CK_Races_Target", "\"Target\" >= 0");
             table.HasCheckConstraint("CK_Races_Pin", "\"Pin\" ~ '^[0-9]{6}$'");
+            table.HasCheckConstraint("CK_Races_ReminderIntervalMin", "\"ReminderIntervalMin\" BETWEEN 5 AND 180");
         });
 
         builder.HasKey(r => r.Id);
@@ -23,6 +24,10 @@ public class RacesConfiguration : IEntityTypeConfiguration<Races>
         builder.Property(r => r.Target)
             .IsRequired()
             .HasDefaultValue(60);
+
+        builder.Property(r => r.ReminderIntervalMin)
+            .IsRequired()
+            .HasDefaultValue(30);
 
         builder.Property(r => r.Pin)
             .IsRequired()

@@ -32,7 +32,7 @@ public class RaceCrewEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var race = await Post<RaceDto>(owner, Route(ApiEndpoints.Users.CreateRace), new CreateRaceRequest("UTCT", 70));
         var segment = await Post<SegmentDto>(owner, SegmentsRoute(race.Id), new SegmentRequest("Start to AS1", 180, 18, null));
         var gel = await Post<NutritionItemDto>(owner, Route(ApiEndpoints.Users.CreateNutritionItem),
-            new NutritionItemRequest("Gel", NutritionType.Gel, null, 40, null, null, null, null, null, null));
+            new NutritionItemRequest("Gel", NutritionType.Liquid, null, 40, null, null, null, null, null, null));
         var item = await Post<ItemDto>(owner, ItemsRoute(race.Id, segment.Id), new ItemRequest(gel.Id));
         var pin = (await owner.GetFromJsonAsync<RaceDetailDto>(RaceRoute(race.Id), TestJson.Options))!.Pin!;
 

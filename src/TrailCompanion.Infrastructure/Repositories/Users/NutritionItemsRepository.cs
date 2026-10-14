@@ -39,8 +39,10 @@ public class NutritionItemsRepository : Repository, INutritionItemsRepository
             .CountAsync(i => i.NutritionItemId == id && owned.Any(), cancellationToken);
         var atStations = await Context.Set<AidStationItems>()
             .CountAsync(i => i.NutritionItemId == id && owned.Any(), cancellationToken);
+        var inReminders = await Context.Set<ReminderItems>()
+            .CountAsync(i => i.NutritionItemId == id && owned.Any(), cancellationToken);
 
-        return inSegments + atStations;
+        return inSegments + atStations + inReminders;
     }
 
     public async Task AddAsync(NutritionItems nutritionItem, CancellationToken cancellationToken = default) =>

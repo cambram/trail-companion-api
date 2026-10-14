@@ -15,6 +15,7 @@ public class GetRaceQueryHandlerTests
     private readonly INutritionItemsRepository _nutrition = Substitute.For<INutritionItemsRepository>();
     private readonly IAidStationsRepository _stations = Substitute.For<IAidStationsRepository>();
     private readonly IAidStationItemsRepository _stationItems = Substitute.For<IAidStationItemsRepository>();
+    private readonly IReminderItemsRepository _reminders = Substitute.For<IReminderItemsRepository>();
     private readonly Guid _appUserId = Guid.NewGuid();
     private readonly Races _race;
 
@@ -27,9 +28,10 @@ public class GetRaceQueryHandlerTests
         _nutrition.GetAllAsync(_appUserId, Arg.Any<CancellationToken>()).Returns([]);
         _stations.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([]);
         _stationItems.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _reminders.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns([]);
     }
 
-    private GetRaceQueryHandler CreateHandler() => new(_races, _segments, _items, _nutrition, _stations, _stationItems);
+    private GetRaceQueryHandler CreateHandler() => new(_races, _segments, _items, _nutrition, _stations, _stationItems, _reminders);
 
     private static NutritionItems Nutrition(string name, int? carbs, NutritionType type = NutritionType.Gel, int? size = null) =>
         new() { Id = Guid.NewGuid(), Name = name, Type = type, Carbs = carbs, Size = size };
@@ -208,5 +210,55 @@ public class GetRaceQueryHandlerTests
         await _segments.DidNotReceive().GetByRaceIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
         await _items.DidNotReceive().GetByRaceIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
         await _nutrition.DidNotReceive().GetAllAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_ReturnsTheIntervalAndRemindersGroupedByNumberWithOrderedItems()
+    {
+        _race.ReminderIntervalMin = 45;
+        var gel = Nutrition("Gel", 40);
+        var chew = Nutrition("Chews", 22, NutritionType.Solid);
+        _nutrition.GetAllAsync(_appUserId, Arg.Any<CancellationToken>()).Returns([gel, chew]);
+        _reminders.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns(
+        [
+            new ReminderItems { Id = Guid.NewGuid(), RaceId = _race.Id, ReminderNumber = 1, Position = 1, NutritionItemId = gel.Id },
+            new ReminderItems { Id = Guid.NewGuid(), RaceId = _race.Id, ReminderNumber = 1, Position = 2, NutritionItemId = chew.Id },
+            new ReminderItems { Id = Guid.NewGuid(), RaceId = _race.Id, ReminderNumber = 3, Position = 1, NutritionItemId = gel.Id }
+        ]);
+
+        var result = await CreateHandler().Handle(new GetRaceQuery(_appUserId, _race.Id), CancellationToken.None);
+
+        Assert.Equal(45, result.ReminderIntervalMin);
+        Assert.Equal([1, 3], result.Reminders.Select(r => r.Number));
+        Assert.Equal(["Gel", "Chews"], result.Reminders[0].Items.Select(i => i.Name));
+        Assert.Equal([40, 22], result.Reminders[0].Items.Select(i => i.Carbs));
+        Assert.Equal([1, 1], result.Reminders[0].Items.Select(i => i.ReminderNumber));
+        Assert.Single(result.Reminders[1].Items);
+    }
+
+    [Fact]
+    public async Task Handle_WithoutReminders_ReturnsAnEmptyList()
+    {
+        var result = await CreateHandler().Handle(new GetRaceQuery(_appUserId, _race.Id), CancellationToken.None);
+
+        Assert.Equal(30, result.ReminderIntervalMin);
+        Assert.Empty(result.Reminders);
+    }
+
+    [Fact]
+    public async Task Handle_ForCrew_ReadsRemindersWithTheOwnersId()
+    {
+        var crewId = Guid.NewGuid();
+        var gel = Nutrition("Gel", 40);
+        _races.GetAccessibleByIdAsync(crewId, _race.Id, Arg.Any<CancellationToken>()).Returns(_race);
+        _nutrition.GetAllAsync(_appUserId, Arg.Any<CancellationToken>()).Returns([gel]);
+        _reminders.GetByRaceIdAsync(_appUserId, _race.Id, Arg.Any<CancellationToken>()).Returns(
+        [
+            new ReminderItems { Id = Guid.NewGuid(), RaceId = _race.Id, ReminderNumber = 2, Position = 1, NutritionItemId = gel.Id }
+        ]);
+
+        var result = await CreateHandler().Handle(new GetRaceQuery(crewId, _race.Id), CancellationToken.None);
+
+        Assert.Equal([2], result.Reminders.Select(r => r.Number));
     }
 }

@@ -54,6 +54,15 @@ internal sealed class CreateItemCommandHandler : IRequestHandler<CreateItemComma
                 command.AppUserId, nutritionItemId, cancellationToken)
             ?? throw new NotFoundException(nameof(NutritionItems), nutritionItemId);
 
+        if (nutritionItem.Type != NutritionType.Liquid)
+        {
+            throw new ValidationFailedException(
+                "The item request is invalid.",
+                [new ValidationFailure(
+                    "LiquidOnly",
+                    "Only liquid items can be carried in a segment. Plan solids on the reminder timeline.")]);
+        }
+
         var existing = await _itemsRepository.GetBySegmentIdAsync(
             command.AppUserId, command.RaceId, command.SegmentId, cancellationToken);
         AccountLimitRules.RequireRoom(existing.Count, AccountLimitRules.MaxItemsPerSegment, "items in a segment");

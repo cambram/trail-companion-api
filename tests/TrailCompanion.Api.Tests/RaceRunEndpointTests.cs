@@ -243,7 +243,7 @@ public class RaceRunEndpointTests : IClassFixture<PostgresDatabaseFixture>
         var gel = await host.Post<NutritionItemDto>(
             owner,
             RunHost.Route(ApiEndpoints.Users.CreateNutritionItem),
-            new NutritionItemRequest("Gel", NutritionType.Gel, null, 40, null, null, null, null, null, null));
+            new NutritionItemRequest("Gel", NutritionType.Liquid, null, 40, null, null, null, null, null, null));
         var segmentId = plan.SegmentIds[0];
         var stationId = plan.StationIds[0];
         var item = await host.Post<ItemDto>(

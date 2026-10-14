@@ -6,6 +6,7 @@ internal static class AccountLimitRules
     public const int MaxSegmentsPerRace = 100;
     public const int MaxItemsPerSegment = 50;
     public const int MaxItemsPerAidStation = 50;
+    public const int MaxItemsPerReminder = 10;
     public const int MaxNutritionItems = 500;
     public const int MaxCrewPerRace = 20;
 

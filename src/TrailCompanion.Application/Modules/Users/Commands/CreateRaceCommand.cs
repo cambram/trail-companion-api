@@ -9,6 +9,8 @@ namespace TrailCompanion.Application.Modules.Users.Commands;
 public sealed class CreateRaceCommand : IRequest<RaceDto>
 {
     public const int MaxNameLength = 200;
+    public const int MinReminderIntervalMin = 5;
+    public const int MaxReminderIntervalMin = 180;
 
     public CreateRaceCommand(Guid appUserId, CreateRaceRequest request)
     {
@@ -33,7 +35,7 @@ internal sealed class CreateRaceCommandHandler : IRequestHandler<CreateRaceComma
     {
         var name = command.Request.Name?.Trim() ?? string.Empty;
 
-        RequireValid(name, command.Request.Target);
+        RequireValid(name, command.Request.Target, command.Request.ReminderIntervalMin);
 
         var existing = await _racesRepository.GetAllAsync(command.AppUserId, cancellationToken);
         AccountLimitRules.RequireRoom(existing.Count, AccountLimitRules.MaxRaces, "races");
@@ -52,13 +54,18 @@ internal sealed class CreateRaceCommandHandler : IRequestHandler<CreateRaceComma
             race.Target = target;
         }
 
+        if (command.Request.ReminderIntervalMin is { } reminderIntervalMin)
+        {
+            race.ReminderIntervalMin = reminderIntervalMin;
+        }
+
         await _racesRepository.AddAsync(race, cancellationToken);
         await _racesRepository.SaveChangesAsync(cancellationToken);
 
         return RaceDto.FromEntity(race);
     }
 
-    internal static void RequireValid(string name, int? target)
+    internal static void RequireValid(string name, int? target, int? reminderIntervalMin = null)
     {
         var failures = new List<ValidationFailure>();
 
@@ -72,6 +79,13 @@ internal sealed class CreateRaceCommandHandler : IRequestHandler<CreateRaceComma
         if (target < 0)
         {
             failures.Add(new ValidationFailure("InvalidTarget", "Target must not be negative."));
+        }
+
+        if (reminderIntervalMin is < CreateRaceCommand.MinReminderIntervalMin or > CreateRaceCommand.MaxReminderIntervalMin)
+        {
+            failures.Add(new ValidationFailure(
+                "InvalidReminderInterval",
+                $"Reminder interval must be between {CreateRaceCommand.MinReminderIntervalMin} and {CreateRaceCommand.MaxReminderIntervalMin} minutes."));
         }
 
         if (failures.Count > 0)

@@ -185,7 +185,7 @@ Route(ApiEndpoints.Users.CreateNutritionItem), body, TestJson.Options);
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
         await SignIn(client);
-        var created = await Create(client, Request("In use"));
+        var created = await Create(client, Request("In use", NutritionType.Liquid));
         var race = await Post<RaceDto>(client, Route(ApiEndpoints.Users.CreateRace), new CreateRaceRequest("UTMB", null));
         var segment = await Post<SegmentDto>(
             client,

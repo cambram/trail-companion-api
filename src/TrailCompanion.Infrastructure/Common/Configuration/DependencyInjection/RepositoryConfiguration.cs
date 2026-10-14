@@ -16,6 +16,7 @@ internal static class RepositoryConfiguration
         services.AddScoped<IItemsRepository, ItemsRepository>();
         services.AddScoped<IAidStationsRepository, AidStationsRepository>();
         services.AddScoped<IAidStationItemsRepository, AidStationItemsRepository>();
+        services.AddScoped<IReminderItemsRepository, ReminderItemsRepository>();
         services.AddScoped<INutritionItemsRepository, NutritionItemsRepository>();
         services.AddScoped<IRefreshTokensRepository, RefreshTokensRepository>();
 

@@ -31,7 +31,7 @@ internal sealed class UpdateRaceEndpoint : IEndpoint
                 })
             .WithName(Name)
             .WithTags(Modules.Users)
-            .WithSummary("Renames a race and optionally changes its carb target for the authenticated caller.")
+            .WithSummary("Updates a race's name, carb target, reminder interval, start time and date for the authenticated caller.")
             .Produces<RaceDto>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)

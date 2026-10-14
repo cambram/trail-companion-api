@@ -51,6 +51,9 @@ Base path is `api`. Route constants live in `src/TrailCompanion.Api/Endpoints/Ap
 | POST | `/api/races/{raceId}/aid-stations/{aidStationId}/items` | Bearer required | Attach a library item to an aid station |
 | PUT | `/api/races/{raceId}/aid-stations/{aidStationId}/items/order` | Bearer required | Reorder aid station items |
 | DELETE | `/api/races/{raceId}/aid-stations/{aidStationId}/items/{id}` | Bearer required | Delete aid station item |
+| POST | `/api/races/{raceId}/reminders/{number}/items` | Bearer required | Attach a library item to a reminder |
+| PUT | `/api/races/{raceId}/reminders/{number}/items/order` | Bearer required | Reorder reminder items |
+| DELETE | `/api/races/{raceId}/reminders/{number}/items/{id}` | Bearer required | Delete reminder item |
 | GET, POST | `/api/nutrition-items` | Bearer required | List / create nutrition library item |
 | PUT, DELETE | `/api/nutrition-items/{id}` | Bearer required | Update / delete nutrition library item |
 

@@ -34,7 +34,7 @@ internal sealed class UpdateRaceCommandHandler : IRequestHandler<UpdateRaceComma
             ?? throw new NotFoundException(nameof(Races), command.RaceId);
 
         var name = command.Request.Name?.Trim() ?? string.Empty;
-        CreateRaceCommandHandler.RequireValid(name, command.Request.Target);
+        CreateRaceCommandHandler.RequireValid(name, command.Request.Target, command.Request.ReminderIntervalMin);
 
         race.Name = name;
         race.StartTime = command.Request.StartTime;
@@ -42,6 +42,11 @@ internal sealed class UpdateRaceCommandHandler : IRequestHandler<UpdateRaceComma
         if (command.Request.Target is { } target)
         {
             race.Target = target;
+        }
+
+        if (command.Request.ReminderIntervalMin is { } reminderIntervalMin)
+        {
+            race.ReminderIntervalMin = reminderIntervalMin;
         }
 
         await _racesRepository.SaveChangesAsync(cancellationToken);

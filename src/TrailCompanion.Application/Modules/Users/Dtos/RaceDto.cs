@@ -9,6 +9,7 @@ public record RaceDto(
     TimeOnly? StartTime,
     DateTime CreatedAtUtc,
     DateOnly? RaceDate,
+    int ReminderIntervalMin,
     RaceRole Role)
 {
     public static RaceDto FromEntity(Races race, RaceRole role = RaceRole.Owner) => new(
@@ -18,5 +19,6 @@ public record RaceDto(
         race.StartTime,
         race.CreatedAtUtc,
         race.RaceDate,
+        race.ReminderIntervalMin,
         role);
 }

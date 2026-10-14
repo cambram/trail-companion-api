@@ -5,12 +5,13 @@
 # Domain
 
 - `AppUser`: the account. JWT `sub` = `AppUser.Id`.
-- `Races`: owned by `AppUserId`. `Name`, `Target` (carbs per hour, default 60), nullable `StartTime` (`TimeOnly`) and `RaceDate` (`DateOnly`, no timezone).
+- `Races`: owned by `AppUserId`. `Name`, `Target` (carbs per hour, default 60), nullable `StartTime` (`TimeOnly`) and `RaceDate` (`DateOnly`, no timezone), `ReminderIntervalMin` (minutes between watch reminders, 5 to 180, default 30).
 - `Segments`: belong to a race. `Position`, `Name`, `Duration`, `EndKm?` (cumulative km mark where the segment ends; length is derived on the client), `AscentM?` (whole metres of ascent, 0 to 10000, null means unknown; the client weights live predictions with it), `Notes`.
-- `Items`: belong to a segment, reference a `NutritionItems`, carry `Position`. They hold no nutrition values of their own.
+- `Items`: belong to a segment, reference a `NutritionItems` of type `Liquid` only (the flask carried on that segment), carry `Position`. They hold no nutrition values of their own.
 - `NutritionItems`: the user's nutrition library, owned by `AppUserId`. `Name` (unique per user), `Type` (`Gel`, `Liquid`, `Solid`, `Pill`, stored as text), nullable `Size` and macros (`Carbs`, `Calories`, `Caffeine`, `Sodium`, `Potassium`, `Magnesium`, `Calcium`). `Sodium`, `Potassium`, `Magnesium` and `Calcium` are `decimal?` at `HasPrecision(8, 2)`; the rest are `int?`. `Size`'s unit is implied by `Type`. Null means unknown, not zero.
 - `AidStations`: belong to a segment (the segment they precede), at most one per segment via the deferrable `UQ_AidStations_SegmentId`. `Name`, `Notes`, `Kit` (jsonb list of `Label` + `Certainty` `Planned`/`Maybe`). No duration. Moving into an occupied segment swaps.
 - `AidStationItems`: belong to an aid station, reference a `NutritionItems`, carry `Position`. Their carbs count toward the station's segment on the client.
+- `ReminderItems`: belong to a race by `RaceId` and a `ReminderNumber` (1 to 500, reminder `n` is at `n × ReminderIntervalMin`), reference a `NutritionItems`, carry `Position`, at most 10 per reminder. The client allocates reminders to segments from planned times; the API does no allocation.
 - `RaceCrewMembers`: belongs to a race and an `AppUser`, unique per pair, both foreign keys cascade. Crew have read-only access to the race.
 - `Races.Pin`: 6 digits, unique, regenerable. Crew join with it.
 - `RaceRuns`: one per race (unique `RaceId`), `StartedAtUtc`, nullable `StartedBy`, nullable `FinishedAtUtc`. Cascades from the race. `StartedBy` is set null when that user is deleted.
@@ -21,7 +22,7 @@
 - Race reads (`GetRaceQuery`, `GetRacesQuery`, `GetRaceCrewQuery`) accept owner or crew via `GetAccessibleByIdAsync` and read children with the race's `AppUserId`. Every write stays owner-only.
 - `Races` and `NutritionItems` carry `AppUserId`. Segments and items are owned through the chain: handlers verify race and segment via repositories that take `appUserId`.
 - Entity classes are plural (`Races`, `Segments`, `Items`). Race features currently live in the `Users` module folders across all layers.
-- A library item in use cannot be deleted: `DeleteNutritionItemCommand` calls `CountUsagesAsync`, which counts `Items` and `AidStationItems`, and throws `ConflictException`. Both foreign keys are `Restrict`.
+- A library item in use cannot be deleted: `DeleteNutritionItemCommand` calls `CountUsagesAsync`, which counts `Items`, `AidStationItems` and `ReminderItems`, and throws `ConflictException`. All three foreign keys are `Restrict`.
 - Routes: see `Endpoints/ApiEndpoints.cs` and the table in `docs/auth.md`. Nested: `/api/races/{raceId}/segments/{segmentId}/items`. Library: `/api/nutrition-items`.
 - `docs/race-reads-option-a-single-endpoint.md` documents the nested `GET /api/races/{id}` DTO design.
 

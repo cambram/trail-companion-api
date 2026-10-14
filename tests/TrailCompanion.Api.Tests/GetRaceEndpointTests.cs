@@ -110,7 +110,7 @@ public class GetRaceEndpointTests : IClassFixture<PostgresDatabaseFixture>
         Post<NutritionItemDto>(
             client,
             Route(ApiEndpoints.Users.CreateNutritionItem),
-            new NutritionItemRequest(name, NutritionType.Gel, null, carbs, null, null, null, null, null, null));
+            new NutritionItemRequest(name, NutritionType.Liquid, null, carbs, null, null, null, null, null, null));
 
     private static async Task SignIn(HttpClient client)
     {

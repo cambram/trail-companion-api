@@ -37,7 +37,7 @@ internal sealed class DeleteNutritionItemCommandHandler : IRequestHandler<Delete
         {
             throw new ConflictException(
                 "NutritionItemInUse",
-                $"This item is used {usages} time{(usages == 1 ? string.Empty : "s")} in your race plans. Remove it from those segments and aid stations first.");
+                $"This item is used {usages} time{(usages == 1 ? string.Empty : "s")} in your race plans. Remove it from those segments, reminders and aid stations first.");
         }
 
         _nutritionItems.Delete(item);

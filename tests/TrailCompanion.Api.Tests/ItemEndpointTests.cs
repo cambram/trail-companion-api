@@ -204,7 +204,7 @@ public class ItemEndpointTests : IClassFixture<PostgresDatabaseFixture>
     private static async Task<NutritionItemDto> CreateNutrition(
         HttpClient client,
         string name,
-        NutritionType type = NutritionType.Gel,
+        NutritionType type = NutritionType.Liquid,
         int? size = null,
         int? carbs = 40)
     {
